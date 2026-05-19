@@ -118,6 +118,40 @@
   <div class="url-box">https://outreach.sms2cartdemo.com</div>
   <p>Open the link in any browser. No login required. The dashboard loads immediately with your pipeline overview.</p>
 
+  <!-- How SMS Works -->
+  <h2>📱 How SMS Sending Works</h2>
+  <p>You <strong>never need to open GHL</strong> to send messages. Everything is controlled from the WebReach dashboard. Here's how it works behind the scenes:</p>
+
+  <div style="background:#f8faff; border:1px solid #dce8ff; border-radius:10px; padding:20px; margin:16px 0;">
+    <div style="display:flex; align-items:center; gap:0; flex-wrap:wrap;">
+      <div style="text-align:center; padding:12px 16px; background:#0f3460; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">WebReach<br>Dashboard</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">→</div>
+      <div style="text-align:center; padding:12px 16px; background:#1565c0; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">GHL API<br>(background)</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">→</div>
+      <div style="text-align:center; padding:12px 16px; background:#6a1b9a; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Twilio<br>(delivery)</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">→</div>
+      <div style="text-align:center; padding:12px 16px; background:#2e7d32; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Business<br>Phone</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:0; flex-wrap:wrap; margin-top:8px;">
+      <div style="text-align:center; padding:12px 16px; background:#0f3460; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">WebReach<br>AI processes</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">←</div>
+      <div style="text-align:center; padding:12px 16px; background:#1565c0; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">GHL<br>webhook</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">←</div>
+      <div style="text-align:center; padding:12px 16px; background:#6a1b9a; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Twilio<br>receives</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">←</div>
+      <div style="text-align:center; padding:12px 16px; background:#2e7d32; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Business<br>replies</div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Question</th><th>Answer</th></tr>
+    <tr><td>Where do I send SMS from?</td><td><strong>WebReach dashboard only</strong> — click "Send Bulk SMS" or the ✉️ icon on a lead</td></tr>
+    <tr><td>Do I need to open GHL?</td><td><strong>No</strong> — GHL works in the background automatically</td></tr>
+    <tr><td>Where do replies appear?</td><td>WebReach tracks them automatically. You can also see them in GHL conversations</td></tr>
+    <tr><td>What number do SMS come from?</td><td>Your Twilio number connected to GHL (+1 839-257-5482)</td></tr>
+    <tr><td>When do I use GHL manually?</td><td>Only when sending the final website link to an interested lead</td></tr>
+  </table>
+
   <!-- Step 1 -->
   <h2>Step 1 — Find Leads (Scraping)</h2>
   <p>Go to <strong>Scraping Jobs</strong> in the left sidebar.</p>
