@@ -58,15 +58,20 @@ def list_leads():
     sort_by  = request.args.get("sort_by", "created_at")
     sort_dir = request.args.get("sort_dir", "desc")
 
-    # New data-quality filters
-    has_phone   = request.args.get("has_phone", "")    # "yes" | "no" | ""
-    has_website = request.args.get("has_website", "")  # "yes" | "no" | ""
-    min_rating  = request.args.get("min_rating", "")   # "3" | "4" | "4.5" | "5" | ""
+    has_phone    = request.args.get("has_phone", "")
+    has_website  = request.args.get("has_website", "")
+    min_rating   = request.args.get("min_rating", "")
+    imported_ghl = request.args.get("imported_ghl", "")
 
     stmt = select(Lead)
 
     if status:
         stmt = stmt.where(Lead.status == status)
+
+    if imported_ghl == "yes":
+        stmt = stmt.where(Lead.imported_to_ghl == True)
+    elif imported_ghl == "no":
+        stmt = stmt.where(or_(Lead.imported_to_ghl == False, Lead.imported_to_ghl.is_(None)))
 
     if search:
         like = f"%{search}%"

@@ -28,6 +28,14 @@
           <option value="converted">Converted</option>
         </select>
       </div>
+      <!-- GHL filter -->
+      <div class="col-md-auto">
+        <select class="form-select form-select-sm" id="ghlFilter" title="GHL status">
+          <option value="">☁️ All Leads</option>
+          <option value="yes">✅ In GHL</option>
+          <option value="no">⬜ Not in GHL</option>
+        </select>
+      </div>
       <!-- Phone filter -->
       <div class="col-md-auto">
         <select class="form-select form-select-sm" id="hasPhone" title="Phone number filter">
@@ -80,6 +88,15 @@
 
 <!-- Active filter chips -->
 <div id="activeFilters" class="mb-2 d-flex flex-wrap gap-1"></div>
+
+<!-- Select all across pages banner -->
+<div id="selectAllBanner" class="alert alert-primary py-2 px-3 mb-2 d-none d-flex align-items-center justify-content-between">
+  <span id="selectAllMsg"></span>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-primary" onclick="selectAllAcrossPages()" id="selectAllPagesBtn"></button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="clearAllSelection()">Clear</button>
+  </div>
+</div>
 
 <!-- Bulk Actions -->
 <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
@@ -181,7 +198,9 @@
 <script>
 let currentPage = 1;
 let totalPages = 1;
+let totalLeads = 0;
 let selectedIds = new Set();
+let allPagesSelected = false;
 
 const STATUS_BADGE = {
   not_contacted: "secondary",
@@ -216,12 +235,13 @@ window.addEventListener("DOMContentLoaded", () => {
 
 function getFilters() {
   return {
-    search:      document.getElementById("searchInput").value,
-    status:      document.getElementById("statusFilter").value,
-    has_phone:   document.getElementById("hasPhone").value,
-    has_website: document.getElementById("hasWebsite").value,
-    min_rating:  document.getElementById("minRating").value,
-    sort_by:     document.getElementById("sortBy").value,
+    search:       document.getElementById("searchInput").value,
+    status:       document.getElementById("statusFilter").value,
+    has_phone:    document.getElementById("hasPhone").value,
+    has_website:  document.getElementById("hasWebsite").value,
+    min_rating:   document.getElementById("minRating").value,
+    sort_by:      document.getElementById("sortBy").value,
+    imported_ghl: document.getElementById("ghlFilter").value,
   };
 }
 
@@ -258,15 +278,18 @@ async function loadLeads(page = 1) {
     min_rating: f.min_rating,
     sort_by: f.sort_by,
     sort_dir: "desc",
+    imported_ghl: f.imported_ghl,
   });
 
   try {
     const data = await api("GET", `/api/leads/?${params}`);
-    totalPages = data.pages;
+    totalPages  = data.pages;
+    totalLeads  = data.total;
     document.getElementById("totalCount").textContent = `${data.total.toLocaleString()} leads`;
     document.getElementById("pageInfo").textContent = `Page ${page} of ${data.pages} (${data.total} total)`;
     renderTable(data.leads);
     renderPagination(data.pages, page);
+    updateSelectAllBanner();
   } catch (e) {
     showToast(e.message, "error");
   }
@@ -329,27 +352,69 @@ function esc(str) {
 
 // Checkboxes
 document.getElementById("selectAll").addEventListener("change", function() {
+  allPagesSelected = false;
   document.querySelectorAll(".lead-cb").forEach(cb => {
     cb.checked = this.checked;
     if (this.checked) selectedIds.add(parseInt(cb.value));
     else selectedIds.delete(parseInt(cb.value));
   });
   updateSelectedCount();
+  updateSelectAllBanner();
 });
 
 function toggleSelect(id) {
+  allPagesSelected = false;
   if (selectedIds.has(id)) selectedIds.delete(id);
   else selectedIds.add(id);
   updateSelectedCount();
+  updateSelectAllBanner();
 }
 
 function updateSelectedCount() {
   const el = document.getElementById("selectedCount");
-  if (selectedIds.size > 0) {
+  if (allPagesSelected) {
+    el.textContent = `All ${totalLeads.toLocaleString()} leads selected`;
+  } else if (selectedIds.size > 0) {
     el.textContent = `${selectedIds.size} selected`;
   } else {
     el.textContent = "";
   }
+}
+
+function updateSelectAllBanner() {
+  const banner = document.getElementById("selectAllBanner");
+  const msg    = document.getElementById("selectAllMsg");
+  const btn    = document.getElementById("selectAllPagesBtn");
+
+  if (allPagesSelected) {
+    banner.classList.remove("d-none");
+    msg.textContent = `All ${totalLeads.toLocaleString()} leads are selected.`;
+    btn.textContent = "Clear selection";
+    btn.onclick = clearAllSelection;
+  } else if (selectedIds.size === 50 && totalLeads > 50) {
+    banner.classList.remove("d-none");
+    msg.textContent = `50 leads on this page selected.`;
+    btn.textContent = `Select all ${totalLeads.toLocaleString()} leads`;
+    btn.onclick = selectAllAcrossPages;
+  } else {
+    banner.classList.add("d-none");
+  }
+}
+
+function selectAllAcrossPages() {
+  allPagesSelected = true;
+  document.querySelectorAll(".lead-cb").forEach(cb => cb.checked = true);
+  updateSelectedCount();
+  updateSelectAllBanner();
+}
+
+function clearAllSelection() {
+  allPagesSelected = false;
+  selectedIds.clear();
+  document.querySelectorAll(".lead-cb").forEach(cb => cb.checked = false);
+  document.getElementById("selectAll").checked = false;
+  updateSelectedCount();
+  updateSelectAllBanner();
 }
 
 // Filters
@@ -359,7 +424,8 @@ document.getElementById("searchInput").addEventListener("input", () => {
   searchTimer = setTimeout(() => loadLeads(1), 400);
 });
 document.getElementById("statusFilter").addEventListener("change", () => loadLeads(1));
-document.getElementById("hasPhone").addEventListener("change",   () => loadLeads(1));
+document.getElementById("ghlFilter").addEventListener("change",   () => loadLeads(1));
+document.getElementById("hasPhone").addEventListener("change",    () => loadLeads(1));
 document.getElementById("hasWebsite").addEventListener("change", () => loadLeads(1));
 document.getElementById("minRating").addEventListener("change",  () => loadLeads(1));
 document.getElementById("sortBy").addEventListener("change",     () => loadLeads(1));
@@ -367,10 +433,12 @@ document.getElementById("sortBy").addEventListener("change",     () => loadLeads
 function clearFilters() {
   document.getElementById("searchInput").value = "";
   document.getElementById("statusFilter").value = "";
+  document.getElementById("ghlFilter").value = "";
   document.getElementById("hasPhone").value = "";
   document.getElementById("hasWebsite").value = "";
   document.getElementById("minRating").value = "";
   document.getElementById("sortBy").value = "created_at";
+  clearAllSelection();
   loadLeads(1);
 }
 
@@ -441,11 +509,25 @@ async function deleteLead(id) {
 }
 
 async function importSelected() {
-  if (!selectedIds.size) { showToast("Select at least one lead", "error"); return; }
-  for (const id of selectedIds) {
-    try { await api("POST", `/api/leads/${id}/import-to-ghl`); } catch (e) { console.error(e); }
+  if (!allPagesSelected && !selectedIds.size) { showToast("Select at least one lead", "error"); return; }
+
+  if (allPagesSelected) {
+    if (!confirm(`Import all ${totalLeads.toLocaleString()} leads to GHL?`)) return;
+    try {
+      const data = await api("POST", "/api/leads/import-all-to-ghl", { status: "" });
+      showToast(`Imported ${data.results.success} leads to GHL`);
+      clearAllSelection();
+      loadLeads(currentPage);
+    } catch (e) { showToast(e.message, "error"); }
+    return;
   }
-  showToast(`Imported ${selectedIds.size} leads`);
+
+  let done = 0;
+  for (const id of selectedIds) {
+    try { await api("POST", `/api/leads/${id}/import-to-ghl`); done++; } catch (e) { console.error(e); }
+  }
+  showToast(`Imported ${done} leads to GHL`);
+  clearAllSelection();
   loadLeads(currentPage);
 }
 
