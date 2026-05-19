@@ -87,11 +87,28 @@ def _followup(business_name, count):
     idx = min(count - 1, len(messages) - 1)
     return messages[idx]
 
-def _website_info():
-    """Return info about our business when asked."""
+def _website_info(lead_name: str = "", step: int = 0):
+    """Return a natural intro when someone asks who we are."""
     website = _setting("business_website")
     name = _setting("business_name")
-    return f"You can find out more about us at {website} — we're {name}, specialists in building websites for local businesses. 😊"
+    agent = _setting("sms_agent_name")
+
+    if step == 0:
+        # Still at greeting stage — introduce and re-confirm identity
+        biz = f" for {lead_name}" if lead_name else ""
+        return (
+            f"Hi! I'm {agent} from {name} — we specialise in building professional websites "
+            f"for local businesses{biz}. 😊\n\n"
+            f"You can check us out at {website}\n\n"
+            f"I was reaching out because we noticed your Google profile doesn't have a website linked — "
+            f"is this the right number to discuss that?"
+        )
+    else:
+        # Mid-conversation — brief answer and keep going
+        return (
+            f"We're {name} — specialists in building websites for local businesses. "
+            f"You can see our work at {website} 😊"
+        )
 
 
 # ------------------------------------------------------------------ #
@@ -203,7 +220,7 @@ def get_next_message(lead, inbound_text: str):
 
     # Website question — always answer regardless of step
     if intent == "website_ask":
-        return _website_info(), lead.status, step
+        return _website_info(name, step), lead.status, step
 
     if intent == "opt_out":
         return _opt_out(), "opted_out", step
