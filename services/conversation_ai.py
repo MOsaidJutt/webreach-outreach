@@ -114,8 +114,10 @@ OPT_OUT_PATTERNS = [
     r"\bopt-out\b", r"\bdo not contact\b", r"\bleave me alone\b", r"\bblock\b",
 ]
 WEBSITE_ASK_PATTERNS = [
-    r"\bwho are you\b", r"\byour website\b", r"\bmore info\b",
-    r"\bwhere can i\b", r"\blearn more\b", r"\babout you\b", r"\byour company\b",
+    r"\bwho are you\b", r"\bwho is this\b", r"\bwho's this\b",
+    r"\byour website\b", r"\bmore info\b", r"\bwhere can i\b",
+    r"\blearn more\b", r"\babout you\b", r"\byour company\b",
+    r"\bwhat company\b", r"\bwhat business\b",
 ]
 CONFIRMATION_PATTERNS = [
     r"\byes\b", r"\byep\b", r"\byeah\b", r"\bthat'?s us\b", r"\bcorrect\b",
