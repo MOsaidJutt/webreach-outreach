@@ -33,7 +33,7 @@ class AppSettings(db.Model):
         "business_name":          "AMZUS Digital",
         "sms_agent_name":         "Sarah",
         "daily_send_limit":       "50",
-        "opening_message":        "Hi! Is this {business_name}? My name is {agent_name} from {company_name} — I have a quick idea I'd love to share with you if you have a moment?",
+        "opening_message":        "Hi, is this the owner of {business_name}?",
     }
 
 

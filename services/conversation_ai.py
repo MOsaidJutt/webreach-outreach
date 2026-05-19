@@ -32,60 +32,61 @@ def _greeting(business_name):
 
 def _compliment(rating, reviews):
     return (
-        f"We came across {{}}'s Google profile — {rating} stars with {reviews} reviews. "
-        f"That's genuinely impressive and shows real trust from your customers.\n\n"
-        f"One thing we noticed though — there's no website linked to your profile. "
-        f"That means people searching for you online may be going to a competitor instead."
+        f"We noticed something on your Google profile that's actually costing you customers right now.\n\n"
+        f"You have {reviews} reviews and a {rating}-star rating — that's better than most businesses in your area. "
+        f"But because there's no website linked, Google won't show you to people actively searching for what you offer.\n\n"
+        f"Your competitors with worse ratings are getting those customers instead."
     )
 
 def _offer(business_name):
     return (
-        f"I have an idea — let's try this approach.\n\n"
-        f"How about I build a complete website for {business_name} completely free of charge? "
-        f"If you like the result, we can move forward together. "
-        f"If not, we can simply end it there with no obligations.\n\n"
-        f"For this demo project, there will be absolutely no charges."
+        f"Here's what we'd like to do — we'll build {business_name} a complete professional website, "
+        f"completely free of charge.\n\n"
+        f"No upfront cost. No obligation. If you love it, we can talk about keeping it live. "
+        f"If not, walk away with nothing to lose.\n\n"
+        f"We've already started on a draft. Want to see it?"
     )
 
 def _interested_ack():
     return (
-        "That's brilliant — I'll get started on it right away!\n\n"
-        "One of our team will be in touch very shortly with your completed website. "
-        "We think you'll love what we've put together for you. 😊"
+        "Perfect — we'll have it ready for you very shortly.\n\n"
+        "One of our team will send you the link so you can see exactly what we've built. "
+        "We think you'll be pleasantly surprised. 😊"
     )
 
 def _not_interested():
     return (
-        "Absolutely no problem — I respect that completely. "
-        "If you ever change your mind down the line, you know where we are. "
-        "Wishing you all the best! 👋"
+        "No problem at all — I completely respect that. "
+        "If things ever change and you want to explore it, we're here. "
+        "All the best! 👋"
     )
 
 def _opt_out():
     return (
-        "Of course — I've removed you from our list and you won't hear from us again. "
-        "Sorry for any inconvenience, and have a wonderful day! 🙏"
+        "Understood — I've removed you from our list and you won't hear from us again. "
+        "Sorry for the interruption and have a great day! 🙏"
     )
 
 def _unclear(business_name):
     return (
-        f"Just to be clear — this is completely free, no strings attached. "
-        f"We build the website for {business_name} at no cost. "
-        f"If you love it, great — if not, no worries at all. "
-        f"Would you like to see it? A simple yes or no is perfect 😊"
+        f"Just to be crystal clear — there's zero cost and zero obligation. "
+        f"We build the site, you take a look. "
+        f"If it's not for you, no hard feelings whatsoever.\n\n"
+        f"Does that sound fair? Yes or no works perfectly 😊"
     )
 
 def _followup(business_name, count):
     messages = [
         (
-            f"Hi again! Just a quick follow-up — our offer still stands. "
-            f"We'd love to build a free website for {business_name}, no charge, no obligation. "
-            f"Would you like to see what we can do? 🌐"
+            f"Hi again — just checking back in. "
+            f"We still have that free website ready for {business_name}. "
+            f"Every day without a website is another day customers are going elsewhere. "
+            f"Want us to send you the link?"
         ),
         (
-            f"Last message from us — we genuinely believe a website would make a real difference for {business_name}. "
-            f"Our offer: we build it completely free. You only pay if you love it and want to keep it. "
-            f"Worth a look?"
+            f"Last one from us — the free website for {business_name} is ready to go. "
+            f"No cost, no commitment. Just take a look and decide. "
+            f"If not, we completely understand and won't contact you again."
         ),
     ]
     return messages[min(count - 1, len(messages) - 1)]
