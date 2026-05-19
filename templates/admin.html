@@ -38,7 +38,7 @@
         </div>
         <div class="mb-3">
           <label class="form-label">Phone Number</label>
-          <input type="text" class="form-control" id="testLeadPhone" value="+447970211567" placeholder="+447970211567" />
+          <input type="text" class="form-control" id="testLeadPhone" value="+16468146354" placeholder="+16468146354" />
         </div>
         <div class="mb-3">
           <label class="form-label">Rating</label>
@@ -63,7 +63,13 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted small">This sends a fake inbound SMS to your webhook to test if the AI responds correctly. Uses a real lead from your database.</p>
+        <p class="text-muted small">Sends a fake inbound SMS to your webhook to test if the AI responds correctly.</p>
+        <div class="mb-3">
+          <label class="form-label">Select Lead</label>
+          <select class="form-select" id="testLeadSelect">
+            <option value="">Loading leads...</option>
+          </select>
+        </div>
         <div class="mb-3">
           <label class="form-label">Test Message (simulates lead reply)</label>
           <input type="text" class="form-control" id="testMessage" value="Yes please!" />
@@ -425,7 +431,25 @@ async function addTestLead() {
   }
 }
 
-function showTestModal() {
+async function showTestModal() {
+  // Load leads with GHL contact ID into dropdown
+  const select = document.getElementById("testLeadSelect");
+  select.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const data = await api("GET", "/api/leads/?per_page=200&sort_by=updated_at&sort_dir=desc");
+    const ghlLeads = data.leads.filter(l => l.ghl_contact_id && l.phone);
+    if (!ghlLeads.length) {
+      select.innerHTML = '<option value="">No GHL-imported leads found</option>';
+    } else {
+      select.innerHTML = ghlLeads.map(l =>
+        `<option value="${l.id}" ${l.phone === '+16468146354' ? 'selected' : ''}>
+          ${l.business_name} — ${l.phone} (${l.status})
+        </option>`
+      ).join("");
+    }
+  } catch(e) {
+    select.innerHTML = '<option value="">Error loading leads</option>';
+  }
   new bootstrap.Modal(document.getElementById("testModal")).show();
 }
 
@@ -435,7 +459,8 @@ async function runWebhookTest() {
   resultEl.className = "alert alert-info d-block";
   resultEl.textContent = "Testing...";
   try {
-    const data = await api("POST", "/api/admin/test-webhook", { message: msg });
+    const leadId = document.getElementById("testLeadSelect").value || null;
+    const data = await api("POST", "/api/admin/test-webhook", { message: msg, lead_id: leadId ? parseInt(leadId) : null });
     resultEl.className = "alert alert-success d-block";
     resultEl.innerHTML = `<strong>✅ ${data.message}</strong><br>Webhook: ${data.webhook_status}<br><small>${JSON.stringify(data.webhook_response)}</small>`;
     setTimeout(() => loadAppLogs(), 2000);
