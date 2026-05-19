@@ -42,7 +42,13 @@
             <li>In GHL, set up a <strong>Twilio phone number</strong> under Settings → Phone Numbers</li>
             <li>Add your Twilio SMS number to <code>SMS_FROM_NUMBER</code> in <code>.env</code></li>
           </ol>
-          <div class="badge bg-secondary" id="ghlStatus">Checking...</div>
+          <div class="d-flex align-items-center gap-2 mt-2">
+          <div class="badge bg-secondary" id="ghlStatus">Not tested</div>
+          <button class="btn btn-sm btn-outline-primary" onclick="testGHL()">
+            <i class="bi bi-plug me-1"></i> Test GHL Connection
+          </button>
+        </div>
+        <div id="ghlError" class="alert alert-danger small mt-2 d-none"></div>
         </div>
 
         <hr />
@@ -178,6 +184,31 @@
 
 {% block scripts %}
 <script>
+async function testGHL() {
+  const badge = document.getElementById("ghlStatus");
+  const errEl = document.getElementById("ghlError");
+  badge.className = "badge bg-secondary";
+  badge.textContent = "Testing...";
+  errEl.classList.add("d-none");
+  try {
+    const data = await api("GET", "/api/admin/test-ghl");
+    if (data.ok) {
+      badge.className = "badge bg-success";
+      badge.textContent = "✅ Connected — " + data.user;
+    } else {
+      badge.className = "badge bg-danger";
+      badge.textContent = "❌ Failed";
+      errEl.textContent = data.error;
+      errEl.classList.remove("d-none");
+    }
+  } catch (e) {
+    badge.className = "badge bg-danger";
+    badge.textContent = "❌ Error";
+    errEl.textContent = e.message;
+    errEl.classList.remove("d-none");
+  }
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   // Set webhook URL
   const webhookUrl = `${window.location.origin}/api/webhooks/ghl`;
