@@ -27,6 +27,10 @@ def settings():
 def conversations():
     return render_template("conversations.html")
 
+@views_bp.route("/conversation-settings")
+def conversation_settings():
+    return render_template("conversation_settings.html")
+
 @views_bp.route("/admin")
 def admin():
     return render_template("admin.html")

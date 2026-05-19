@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Conversation Settings{% endblock %}
+{% block page_title %}AI Conversation Settings{% endblock %}
+
+{% block content %}
+
+<div class="alert alert-info d-flex gap-2 mb-4">
+  <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+  <div>
+    <strong>All replies go through OpenAI.</strong> The message templates below are used as style guides for the AI,
+    and as fallbacks if OpenAI is unavailable. Changes take effect immediately — no restart needed.
+  </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-4" id="convTabs">
+  <li class="nav-item"><a class="nav-link active" href="#" onclick="showTab('prompt')"><i class="bi bi-robot me-1"></i> AI System Prompt</a></li>
+  <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('templates')"><i class="bi bi-chat-quote me-1"></i> Message Templates</a></li>
+  <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('followups')"><i class="bi bi-arrow-repeat me-1"></i> Follow-Up Messages</a></li>
+  <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('preview')"><i class="bi bi-play-circle me-1"></i> Live Preview</a></li>
+</ul>
+
+<!-- ═══ TAB: AI System Prompt ═══ -->
+<div id="tab-prompt">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 fw-semibold pt-3">
+      AI System Prompt
+      <span class="badge bg-primary ms-2">Controls AI personality & behaviour</span>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-secondary small mb-3">
+        <strong>Available variables:</strong>
+        <code>{agent_name}</code> <code>{business_name}</code> <code>{lead_name}</code>
+        <code>{rating}</code> <code>{reviews}</code> <code>{website}</code>
+      </div>
+      <textarea class="form-control font-monospace" id="ai_system_prompt" rows="20" style="font-size:13px"></textarea>
+      <button class="btn btn-primary mt-3" onclick="save('ai_system_prompt')">
+        <i class="bi bi-save me-1"></i> Save System Prompt
+      </button>
+      <button class="btn btn-outline-secondary mt-3 ms-2" onclick="resetDefault('ai_system_prompt')">
+        Reset to Default
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: Message Templates ═══ -->
+<div id="tab-templates" style="display:none">
+  <div class="row g-4">
+
+    <div class="col-12">
+      <div class="alert alert-secondary small">
+        <strong>Variables:</strong>
+        <code>{business_name}</code> <code>{rating}</code> <code>{reviews}</code>
+        <code>{agent_name}</code> <code>{company_name}</code> <code>{website}</code>
+      </div>
+    </div>
+
+    {% set templates = [
+      ('msg_opening',       'Opening Message', 'First SMS sent to every lead', 'Step 0'),
+      ('msg_compliment',    'Step 1 — Rating + Gap', 'Sent after lead confirms identity', 'Step 1'),
+      ('msg_offer',         'Step 2 — The Offer', 'Free website pitch', 'Step 2'),
+      ('msg_interested',    'Interested Acknowledgement', 'When lead says yes', '✅ Yes'),
+      ('msg_not_interested','Not Interested', 'When lead declines', '❌ No'),
+      ('msg_opt_out',       'Opt-Out Confirmation', 'When lead says STOP', '🚫 Stop'),
+      ('msg_unclear',       'Unclear Reply', 'When reply is ambiguous', '❓ Unclear'),
+      ('msg_who_are_you',   'Who Are You?', 'When lead asks about your company', '🏢 Identity'),
+      ('msg_number_question','Where Did You Get My Number?', 'Privacy objection handler', '📱 Number'),
+    ] %}
+
+    {% for key, title, desc, badge in templates %}
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center">
+          <div>
+            <span class="fw-semibold">{{ title }}</span>
+            <span class="badge bg-secondary ms-2">{{ badge }}</span>
+          </div>
+          <small class="text-muted">{{ desc }}</small>
+        </div>
+        <div class="card-body">
+          <textarea class="form-control" id="{{ key }}" rows="5" style="font-size:13px"></textarea>
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-primary" onclick="save('{{ key }}')">Save</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="resetDefault('{{ key }}')">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+</div>
+
+<!-- ═══ TAB: Follow-Up Messages ═══ -->
+<div id="tab-followups" style="display:none">
+  <div class="row g-4">
+    <div class="col-12">
+      <div class="alert alert-secondary small">
+        Sent automatically to leads who haven't replied. Configure timing in <a href="/admin">Admin Settings</a>.
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 fw-semibold pt-3">
+          Follow-Up #1 <span class="badge bg-info ms-2">First reminder</span>
+        </div>
+        <div class="card-body">
+          <textarea class="form-control" id="msg_followup_1" rows="5" style="font-size:13px"></textarea>
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-primary" onclick="save('msg_followup_1')">Save</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="resetDefault('msg_followup_1')">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 fw-semibold pt-3">
+          Follow-Up #2 <span class="badge bg-warning ms-2">Final reminder</span>
+        </div>
+        <div class="card-body">
+          <textarea class="form-control" id="msg_followup_2" rows="5" style="font-size:13px"></textarea>
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-primary" onclick="save('msg_followup_2')">Save</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="resetDefault('msg_followup_2')">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: Live Preview ═══ -->
+<div id="tab-preview" style="display:none">
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 fw-semibold pt-3">Test Settings</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label small">Business Name</label>
+            <input type="text" class="form-control form-control-sm" id="previewBiz" value="Joe's Hair Studio" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Google Rating</label>
+            <input type="number" class="form-control form-control-sm" id="previewRating" value="4.8" step="0.1" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Reviews</label>
+            <input type="number" class="form-control form-control-sm" id="previewReviews" value="143" />
+          </div>
+          <button class="btn btn-primary btn-sm w-100" onclick="startPreview()">
+            <i class="bi bi-play-fill me-1"></i> Start Conversation
+          </button>
+          <a href="/ai-chat" class="btn btn-outline-secondary btn-sm w-100 mt-2" target="_blank">
+            <i class="bi bi-chat-dots me-1"></i> Open Full Chat Tester
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm h-100" style="min-height:500px">
+        <div class="card-header bg-white border-0 fw-semibold pt-3">Preview</div>
+        <div class="flex-grow-1 p-3 overflow-auto" id="previewThread" style="background:#f8f9fa; min-height:380px; max-height:450px"></div>
+        <div class="card-footer bg-white">
+          <div class="input-group">
+            <input type="text" class="form-control form-control-sm" id="previewInput"
+              placeholder="Reply as business owner..."
+              onkeydown="if(event.key==='Enter') sendPreview()" disabled />
+            <button class="btn btn-primary btn-sm" id="previewSendBtn" onclick="sendPreview()" disabled>
+              <i class="bi bi-send-fill"></i>
+            </button>
+          </div>
+          <div class="d-flex gap-1 mt-2 flex-wrap">
+            <button class="btn btn-xs btn-outline-secondary" onclick="quickPreview('Yes')">Yes</button>
+            <button class="btn btn-xs btn-outline-secondary" onclick="quickPreview('No thanks')">No thanks</button>
+            <button class="btn btn-xs btn-outline-secondary" onclick="quickPreview('Who is this?')">Who is this?</button>
+            <button class="btn btn-xs btn-outline-secondary" onclick="quickPreview('Where did you get my number?')">Number?</button>
+            <button class="btn btn-xs btn-outline-secondary" onclick="quickPreview('Stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let settings = {};
+let previewMessages = [];
+
+window.addEventListener("DOMContentLoaded", loadAllSettings);
+
+function showTab(tab) {
+  ["prompt","templates","followups","preview"].forEach(t => {
+    document.getElementById("tab-" + t).style.display = t === tab ? "" : "none";
+  });
+  document.querySelectorAll("#convTabs .nav-link").forEach((el, i) => {
+    const tabs = ["prompt","templates","followups","preview"];
+    el.classList.toggle("active", tabs[i] === tab);
+  });
+}
+
+async function loadAllSettings() {
+  const data = await api("GET", "/api/admin/settings");
+  settings = data.settings;
+  Object.keys(settings).forEach(key => {
+    const el = document.getElementById(key);
+    if (el) el.value = settings[key] || "";
+  });
+}
+
+async function save(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  await api("POST", "/api/admin/settings", { [key]: el.value });
+  showToast(`"${key}" saved!`);
+}
+
+async function resetDefault(key) {
+  const data = await api("GET", "/api/admin/settings");
+  // Reload defaults from server
+  const el = document.getElementById(key);
+  if (!el) return;
+  // Ask server for fresh defaults
+  const resp = await api("POST", "/api/admin/reset-default", { key });
+  if (resp.value !== undefined) {
+    el.value = resp.value;
+    showToast("Reset to default");
+  }
+}
+
+// ─── Preview ───────────────────────────────────────────────────────
+
+async function startPreview() {
+  previewMessages = [];
+  document.getElementById("previewThread").innerHTML = "";
+  document.getElementById("previewInput").disabled = false;
+  document.getElementById("previewSendBtn").disabled = false;
+  await getPreviewReply();
+}
+
+async function sendPreview() {
+  const input = document.getElementById("previewInput");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  appendPreviewMsg("user", text);
+  previewMessages.push({ role: "user", text });
+  await getPreviewReply();
+}
+
+function quickPreview(text) {
+  document.getElementById("previewInput").value = text;
+  sendPreview();
+}
+
+async function getPreviewReply() {
+  const biz     = document.getElementById("previewBiz").value;
+  const rating  = parseFloat(document.getElementById("previewRating").value);
+  const reviews = parseInt(document.getElementById("previewReviews").value);
+  try {
+    const data = await api("POST", "/api/chat/simulate", {
+      business_name: biz, rating, reviews, messages: previewMessages
+    });
+    appendPreviewMsg("bot", data.reply);
+    previewMessages.push({ role: "bot", text: data.reply });
+  } catch(e) { showToast("Error: " + e.message, "error"); }
+}
+
+function appendPreviewMsg(role, text) {
+  const isBot = role === "bot";
+  const el    = document.getElementById("previewThread");
+  const div   = document.createElement("div");
+  div.className = `mb-3 d-flex ${isBot ? "justify-content-start" : "justify-content-end"}`;
+  div.innerHTML = `
+    <div style="max-width:75%">
+      <div class="px-3 py-2 rounded-3 ${isBot ? "bg-white border shadow-sm" : "bg-primary text-white"}"
+           style="font-size:.875rem; white-space:pre-wrap">${esc(text)}</div>
+      <div class="small text-muted mt-1 ${isBot ? "" : "text-end"}">${isBot ? "🤖 AI" : "👤 Lead"}</div>
+    </div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function esc(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
+}
+</script>
+{% endblock %}

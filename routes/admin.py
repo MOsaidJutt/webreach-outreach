@@ -56,6 +56,18 @@ def debug_ghl():
     return jsonify(results)
 
 
+@admin_bp.route("/reset-default", methods=["POST"])
+def reset_default():
+    data = request.get_json() or {}
+    key  = data.get("key", "")
+    from models import AppSettings
+    default = AppSettings.DEFAULTS.get(key)
+    if default is None:
+        return jsonify({"error": "Unknown key"}), 400
+    AppSettings.set(key, default)
+    return jsonify({"key": key, "value": default})
+
+
 @admin_bp.route("/test-ghl", methods=["GET"])
 def test_ghl():
     """Test GHL API connection and return detailed status."""

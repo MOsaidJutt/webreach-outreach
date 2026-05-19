@@ -33,7 +33,10 @@
     <a href="/ai-chat" class="nav-link {% if '/ai-chat' in request.path %}active{% endif %}">
       <i class="bi bi-chat-dots-fill"></i> AI Chat Test
     </a>
-    <a href="/admin" class="nav-link {% if '/admin' in request.path %}active{% endif %}">
+    <a href="/conversation-settings" class="nav-link {% if '/conversation-settings' in request.path %}active{% endif %}">
+      <i class="bi bi-robot"></i> AI Settings
+    </a>
+    <a href="/admin" class="nav-link {% if request.path == '/admin' %}active{% endif %}">
       <i class="bi bi-sliders"></i> Admin
     </a>
     <a href="/settings" class="nav-link {% if '/settings' in request.path %}active{% endif %}">
