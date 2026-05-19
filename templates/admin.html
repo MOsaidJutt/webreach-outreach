@@ -3,6 +3,17 @@
 {% block page_title %}<span id="adminTitle" style="cursor:pointer" title="Click 5 times to show debug logs">Admin Settings</span>{% endblock %}
 
 {% block content %}
+
+<!-- Top action bar -->
+<div class="d-flex gap-2 mb-3">
+  <button class="btn btn-warning" onclick="toggleLogs()">
+    <i class="bi bi-terminal-fill me-1"></i> View Debug Logs
+  </button>
+  <button class="btn btn-outline-secondary" onclick="loadStats(); loadDailyStats();">
+    <i class="bi bi-arrow-clockwise me-1"></i> Refresh Stats
+  </button>
+</div>
+
 <div class="row g-4">
 
   <!-- Daily Send Limit -->
