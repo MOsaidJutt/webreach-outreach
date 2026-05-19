@@ -123,6 +123,9 @@ async function openThread(leadId) {
           <i class="bi bi-person"></i> Lead
         </a>
         ${l.google_maps_url ? `<a href="${l.google_maps_url}" class="btn btn-xs btn-outline-secondary" target="_blank"><i class="bi bi-map"></i></a>` : ''}
+        <button class="btn btn-xs btn-outline-danger" onclick="deleteConvo(${l.id})" title="Delete this lead & conversation">
+          <i class="bi bi-trash"></i> Delete
+        </button>
       </div>
     </div>
 
@@ -169,6 +172,21 @@ function renderMsg(m) {
         <div class="small text-muted mt-1 ${isOut?'text-end':''}">${isOut?'You (AI)':'Lead'} · ${time}</div>
       </div>
     </div>`;
+}
+
+async function deleteConvo(leadId) {
+  if (!confirm("Delete this lead and all its conversation history? This cannot be undone.")) return;
+  try {
+    await api("DELETE", `/api/leads/${leadId}`);
+    showToast("Deleted");
+    document.getElementById("threadPanel").innerHTML = `
+      <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+        <i class="bi bi-chat-dots fs-1 opacity-25 mb-2"></i>
+        <p class="small">Select a conversation to view messages</p>
+      </div>`;
+    currentLead = null;
+    loadConversations();
+  } catch(e) { showToast(e.message, "error"); }
 }
 
 async function updateStatus(leadId) {
