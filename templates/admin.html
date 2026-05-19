@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Admin{% endblock %}
-{% block page_title %}Admin Settings{% endblock %}
+{% block page_title %}<span id="adminTitle" style="cursor:pointer" title="Click 5 times to show debug logs">Admin Settings</span>{% endblock %}
 
 {% block content %}
 <div class="row g-4">
@@ -180,6 +180,43 @@
     </div>
   </div>
 
+  <!-- Debug Logs (hidden, click title 5x to reveal) -->
+  <div class="col-12" id="debugPanel" style="display:none">
+    <div class="card border-0 shadow-sm border-warning">
+      <div class="card-header bg-warning bg-opacity-10 border-0 fw-semibold pt-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-terminal me-1 text-warning"></i> Debug Logs — Recent SMS Activity</span>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-secondary" onclick="loadLogs()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="document.getElementById('debugPanel').style.display='none'">
+            Hide
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:400px; overflow-y:auto">
+          <table class="table table-sm mb-0 font-monospace" style="font-size:12px">
+            <thead class="table-dark sticky-top">
+              <tr>
+                <th>Time</th>
+                <th>Dir</th>
+                <th>Lead</th>
+                <th>Phone</th>
+                <th>Message</th>
+                <th>Step</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="logsTable">
+              <tr><td colspan="7" class="text-center text-muted py-3">Click Refresh to load logs</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- System Stats -->
   <div class="col-12">
     <div class="card border-0 shadow-sm">
@@ -201,12 +238,52 @@
 <script>
 const DEFAULT_OPENING = "Hi! Is this {business_name}? 👋 I'm {agent_name} from {company_name}.";
 
+let titleClicks = 0;
 window.addEventListener("DOMContentLoaded", () => {
   loadSettings();
   loadStats();
   loadDailyStats();
   previewFollowup();
+
+  document.getElementById("adminTitle").addEventListener("click", () => {
+    titleClicks++;
+    if (titleClicks >= 5) {
+      titleClicks = 0;
+      const panel = document.getElementById("debugPanel");
+      panel.style.display = panel.style.display === "none" ? "" : "none";
+      if (panel.style.display !== "none") loadLogs();
+    }
+  });
 });
+
+async function loadLogs() {
+  try {
+    const data = await api("GET", "/api/admin/logs?limit=100");
+    const tbody = document.getElementById("logsTable");
+    if (!data.logs.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No logs yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.logs.map(l => `
+      <tr class="${l.direction === 'inbound' ? 'table-warning' : ''}">
+        <td class="text-nowrap">${l.time}</td>
+        <td><span class="badge ${l.direction === 'inbound' ? 'bg-warning text-dark' : 'bg-primary'}">
+          ${l.direction === 'inbound' ? '← IN' : '→ OUT'}
+        </span></td>
+        <td class="text-truncate" style="max-width:120px" title="${esc(l.lead||'')}">${esc(l.lead||'—')}</td>
+        <td class="text-nowrap">${l.phone||'—'}</td>
+        <td class="text-truncate" style="max-width:300px" title="${esc(l.message||'')}">${esc(l.message||'—')}</td>
+        <td>${l.step ?? '—'}</td>
+        <td><span class="badge bg-secondary">${l.status||'—'}</span></td>
+      </tr>`).join("");
+  } catch (e) {
+    showToast("Failed to load logs: " + e.message, "error");
+  }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 async function loadSettings() {
   const data = await api("GET", "/api/admin/settings");

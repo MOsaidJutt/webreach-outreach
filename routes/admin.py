@@ -155,6 +155,60 @@ def daily_stats():
     })
 
 
+@admin_bp.route("/logs", methods=["GET"])
+def logs():
+    """Return recent webhook activity and conversations for debugging."""
+    limit = int(request.args.get("limit", 50))
+    from models import ScrapingJob
+
+    # Recent inbound messages
+    recent_inbound = db.session.execute(
+        select(Conversation, Lead)
+        .join(Lead, Conversation.lead_id == Lead.id)
+        .where(Conversation.direction == "inbound")
+        .order_by(Conversation.created_at.desc())
+        .limit(limit)
+    ).all()
+
+    # Recent outbound messages
+    recent_outbound = db.session.execute(
+        select(Conversation, Lead)
+        .join(Lead, Conversation.lead_id == Lead.id)
+        .where(Conversation.direction == "outbound")
+        .order_by(Conversation.created_at.desc())
+        .limit(limit)
+    ).all()
+
+    inbound_logs = [{
+        "time": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "",
+        "lead": l.business_name,
+        "phone": l.phone,
+        "message": c.message,
+        "step": c.step,
+        "status": l.status,
+        "direction": "inbound",
+    } for c, l in recent_inbound]
+
+    outbound_logs = [{
+        "time": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "",
+        "lead": l.business_name,
+        "phone": l.phone,
+        "message": c.message,
+        "step": c.step,
+        "status": l.status,
+        "direction": "outbound",
+    } for c, l in recent_outbound]
+
+    # Merge and sort by time
+    all_logs = sorted(inbound_logs + outbound_logs, key=lambda x: x["time"], reverse=True)[:limit]
+
+    return jsonify({
+        "logs": all_logs,
+        "total_inbound": len(inbound_logs),
+        "total_outbound": len(outbound_logs),
+    })
+
+
 @admin_bp.route("/stats", methods=["GET"])
 def stats():
     from models import ScrapingJob
