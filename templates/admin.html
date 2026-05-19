@@ -15,9 +15,43 @@
   <button class="btn btn-info text-white" onclick="showTestModal()">
     <i class="bi bi-bug me-1"></i> Test Webhook
   </button>
+  <button class="btn btn-outline-primary" onclick="showAddLeadModal()">
+    <i class="bi bi-person-plus me-1"></i> Add Test Lead
+  </button>
   <button class="btn btn-outline-secondary" onclick="loadStats(); loadDailyStats();">
     <i class="bi bi-arrow-clockwise me-1"></i> Refresh Stats
   </button>
+</div>
+
+<!-- Add Test Lead Modal -->
+<div class="modal fade" id="addLeadModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-person-plus me-1"></i> Add Test Lead</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Business Name</label>
+          <input type="text" class="form-control" id="testLeadName" value="My Test Business" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Phone Number</label>
+          <input type="text" class="form-control" id="testLeadPhone" value="+447970211567" placeholder="+447970211567" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Rating</label>
+          <input type="number" class="form-control" id="testLeadRating" value="4.8" step="0.1" min="1" max="5" />
+        </div>
+        <div id="addLeadResult" class="d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" onclick="addTestLead()">Add Lead</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Test webhook modal -->
@@ -348,6 +382,47 @@ async function loadAppLogs() {
       el.textContent = data.message || "No logs yet.";
     }
   } catch(e) { el.textContent = "Error: " + e.message; }
+}
+
+function showAddLeadModal() {
+  new bootstrap.Modal(document.getElementById("addLeadModal")).show();
+}
+
+async function addTestLead() {
+  const name   = document.getElementById("testLeadName").value.trim();
+  const phone  = document.getElementById("testLeadPhone").value.trim();
+  const rating = parseFloat(document.getElementById("testLeadRating").value);
+  const res    = document.getElementById("addLeadResult");
+
+  if (!name || !phone) { showToast("Name and phone required", "error"); return; }
+
+  res.className = "alert alert-info d-block";
+  res.textContent = "Adding lead...";
+
+  try {
+    // Create via CSV import endpoint with a synthetic CSV
+    const csv = `name,phone,rating,reviews,type,full_address\n${name},${phone},${rating},1,Test,Test Address\n`;
+    const formData = new FormData();
+    formData.append("file", new Blob([csv], {type:"text/csv"}), "test.csv");
+    formData.append("min_rating", "0");
+
+    const r = await fetch("/api/leads/import-csv", { method:"POST", body: formData });
+    const data = await r.json();
+
+    if (data.results && data.results.imported > 0) {
+      res.className = "alert alert-success d-block";
+      res.innerHTML = `✅ Lead added! <a href="/leads" target="_blank">View in Leads</a><br><small>Next: Import to GHL, then Send SMS to test the full flow.</small>`;
+    } else if (data.results && data.results.skipped_duplicate > 0) {
+      res.className = "alert alert-warning d-block";
+      res.textContent = "⚠️ This phone number already exists as a lead.";
+    } else {
+      res.className = "alert alert-danger d-block";
+      res.textContent = "Failed: " + JSON.stringify(data);
+    }
+  } catch(e) {
+    res.className = "alert alert-danger d-block";
+    res.textContent = "Error: " + e.message;
+  }
 }
 
 function showTestModal() {
