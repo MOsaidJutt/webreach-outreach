@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings & Configuration{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <!-- API Keys Info -->
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white border-0 fw-semibold pt-3">
+        <i class="bi bi-key-fill me-1 text-warning"></i> API Keys Configuration
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info d-flex gap-2 mb-4">
+          <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+          <div>
+            API keys are stored in the <code>.env</code> file in your project root.
+            Edit that file to update your credentials, then restart the server.
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="fw-semibold mb-1"><i class="bi bi-map text-danger me-1"></i> Outscraper API</h6>
+          <p class="text-muted small mb-2">Used to scrape Google Maps and find businesses without websites.</p>
+          <ol class="small text-muted">
+            <li>Go to <strong>app.outscraper.com</strong> → sign in or create account</li>
+            <li>Navigate to <strong>Profile → API Key</strong></li>
+            <li>Copy your API key and paste it into <code>.env</code> as <code>OUTSCRAPER_API_KEY</code></li>
+          </ol>
+          <div class="badge bg-secondary" id="outscraperStatus">Checking...</div>
+        </div>
+
+        <hr />
+
+        <div class="mb-4">
+          <h6 class="fw-semibold mb-1"><i class="bi bi-lightning-charge-fill text-primary me-1"></i> Go High Level (GHL)</h6>
+          <p class="text-muted small mb-2">Used to create contacts and send/receive SMS messages.</p>
+          <ol class="small text-muted">
+            <li>In GHL, go to <strong>Settings → Integrations → API Keys</strong></li>
+            <li>Create a new API key and copy it to <code>GHL_API_KEY</code> in <code>.env</code></li>
+            <li>Find your Location ID in <strong>Settings → Business Profile</strong> and copy it to <code>GHL_LOCATION_ID</code></li>
+            <li>In GHL, set up a <strong>Twilio phone number</strong> under Settings → Phone Numbers</li>
+            <li>Add your Twilio SMS number to <code>SMS_FROM_NUMBER</code> in <code>.env</code></li>
+          </ol>
+          <div class="badge bg-secondary" id="ghlStatus">Checking...</div>
+        </div>
+
+        <hr />
+
+        <div class="mb-4">
+          <h6 class="fw-semibold mb-1"><i class="bi bi-robot me-1 text-success"></i> OpenAI (Optional)</h6>
+          <p class="text-muted small mb-2">
+            Used for smarter intent classification of ambiguous SMS replies.
+            Falls back to rule-based classification if not configured.
+          </p>
+          <ol class="small text-muted">
+            <li>Go to <strong>platform.openai.com → API Keys</strong></li>
+            <li>Create a new key and paste to <code>OPENAI_API_KEY</code> in <code>.env</code></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Webhook Setup -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white border-0 fw-semibold pt-3">
+        <i class="bi bi-broadcast me-1 text-danger"></i> GHL Webhook Setup
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Configure this webhook URL in GHL so incoming SMS replies are automatically processed by the AI agent.
+        </p>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Your Webhook URL</label>
+          <div class="input-group">
+            <input type="text" class="form-control form-control-sm font-monospace" id="webhookUrl" readonly />
+            <button class="btn btn-outline-secondary btn-sm" onclick="copyWebhook()">
+              <i class="bi bi-clipboard"></i>
+            </button>
+          </div>
+        </div>
+        <div class="alert alert-warning small">
+          <strong>Important:</strong> This URL must be publicly accessible.
+          For local development, use <a href="https://ngrok.com" target="_blank">ngrok</a> to create a tunnel:
+          <code>ngrok http 5000</code>
+        </div>
+        <ol class="small text-muted">
+          <li>In GHL, go to <strong>Settings → Integrations → Webhooks</strong></li>
+          <li>Click <strong>Add Webhook</strong></li>
+          <li>Paste the webhook URL above</li>
+          <li>Select event: <strong>InboundMessage</strong></li>
+          <li>Generate a webhook secret and paste it to <code>WEBHOOK_SECRET</code> in <code>.env</code></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conversation Flow Preview -->
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white border-0 fw-semibold pt-3">
+        <i class="bi bi-chat-quote me-1 text-primary"></i> AI Conversation Flow
+      </div>
+      <div class="card-body p-0">
+        <div class="conversation-thread p-3">
+
+          <div class="mb-3 text-end">
+            <div class="d-inline-block p-2 px-3 rounded-3 bg-primary text-white small" style="max-width:85%">
+              Hi! Is this <strong>[Business Name]</strong>? 👋
+            </div>
+            <div class="small text-muted mt-1">Step 1 — Initial Greeting</div>
+          </div>
+
+          <div class="mb-3 text-start">
+            <div class="d-inline-block p-2 px-3 rounded-3 bg-light small" style="max-width:85%">
+              Yes, that's us! How can I help?
+            </div>
+            <div class="small text-muted mt-1">Lead confirms identity</div>
+          </div>
+
+          <div class="mb-3 text-end">
+            <div class="d-inline-block p-2 px-3 rounded-3 bg-primary text-white small" style="max-width:85%">
+              We noticed you have an impressive <strong>4.8-star</strong> Google rating — that's great! ⭐<br/><br/>
+              However, we also noticed there's no website linked to your Google profile. That means customers searching online may not find you, which could be costing you sales.
+            </div>
+            <div class="small text-muted mt-1">Step 2 — Compliment + Gap</div>
+          </div>
+
+          <div class="mb-3 text-start">
+            <div class="d-inline-block p-2 px-3 rounded-3 bg-light small" style="max-width:85%">
+              Oh wow, I didn't know that...
+            </div>
+            <div class="small text-muted mt-1">Lead engages</div>
+          </div>
+
+          <div class="mb-3 text-end">
+            <div class="d-inline-block p-2 px-3 rounded-3 bg-primary text-white small" style="max-width:85%">
+              We've actually already put together a free preview website for <strong>[Business Name]</strong>. Would you like me to send you the link so you can take a look? No obligation at all! 🌐
+            </div>
+            <div class="small text-muted mt-1">Step 3 — Offer</div>
+          </div>
+
+          <div class="mb-3 text-start">
+            <div class="d-inline-block p-2 px-3 rounded-3 bg-light small" style="max-width:85%">
+              Yes please!
+            </div>
+            <div class="small text-muted mt-1">Lead says yes</div>
+          </div>
+
+          <div class="mb-3 text-end">
+            <div class="d-inline-block p-2 px-3 rounded-3 bg-success text-white small" style="max-width:85%">
+              Wonderful! I'll have that link ready for you shortly. One of our team will be in touch very soon with your personalised website. 😊
+            </div>
+            <div class="small text-muted mt-1">Step 4 — Flagged for manual follow-up ✅</div>
+          </div>
+
+          <div class="alert alert-success small p-2 mt-2 mb-0">
+            <i class="bi bi-bell-fill"></i> <strong>Lead tagged "interested-in-website" in GHL</strong> — create their site on Lovable and send the link manually.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-0 fw-semibold pt-3">System Status</div>
+      <div class="card-body">
+        <div id="systemStatus">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <div class="spinner-border spinner-border-sm text-secondary"></div>
+            <span class="text-muted small">Checking status...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.addEventListener("DOMContentLoaded", async () => {
+  // Set webhook URL
+  const webhookUrl = `${window.location.origin}/api/webhooks/ghl`;
+  document.getElementById("webhookUrl").value = webhookUrl;
+
+  // Load analytics to check system
+  try {
+    const data = await api("GET", "/api/analytics/summary");
+    const m = data.metrics;
+    document.getElementById("systemStatus").innerHTML = `
+      <div class="d-flex justify-content-between mb-1 small">
+        <span>Total Leads</span><strong>${m.total_scraped}</strong>
+      </div>
+      <div class="d-flex justify-content-between mb-1 small">
+        <span>Imported to GHL</span><strong>${m.imported_to_ghl}</strong>
+      </div>
+      <div class="d-flex justify-content-between mb-1 small">
+        <span>Messages Sent</span><strong>${m.messages_sent}</strong>
+      </div>
+      <div class="d-flex justify-content-between mb-1 small">
+        <span>Interested Leads</span><strong class="text-warning">${m.total_interested}</strong>
+      </div>
+      <div class="d-flex justify-content-between small">
+        <span>Converted</span><strong class="text-success">${m.converted}</strong>
+      </div>`;
+
+    document.getElementById("outscraperStatus").className = "badge bg-success";
+    document.getElementById("outscraperStatus").textContent = "Server Running";
+    document.getElementById("ghlStatus").className = "badge bg-info";
+    document.getElementById("ghlStatus").textContent = "Check credentials in .env";
+  } catch (e) {
+    document.getElementById("systemStatus").innerHTML = `<span class="text-danger small">Error loading status</span>`;
+  }
+});
+
+function copyWebhook() {
+  const val = document.getElementById("webhookUrl").value;
+  navigator.clipboard.writeText(val).then(() => showToast("Webhook URL copied!"));
+}
+</script>
+{% endblock %}

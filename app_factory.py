@@ -1,0 +1,50 @@
+from flask import Flask
+from extensions import db, migrate, cors
+
+
+def create_app(config_object=None):
+    app = Flask(__name__)
+
+    if config_object is None:
+        from config import Config
+        app.config.from_object(Config)
+    else:
+        app.config.from_object(config_object)
+
+    db.init_app(app)
+    migrate.init_app(app, db)
+    cors.init_app(app)
+
+    with app.app_context():
+        import models  # noqa: F401
+
+        from routes.scraping import scraping_bp
+        from routes.leads import leads_bp
+        from routes.webhooks import webhooks_bp
+        from routes.analytics import analytics_bp
+        from routes.admin import admin_bp
+        from routes.chat import chat_bp
+        from routes.views import views_bp
+
+        app.register_blueprint(scraping_bp, url_prefix="/api/scraping")
+        app.register_blueprint(leads_bp,    url_prefix="/api/leads")
+        app.register_blueprint(webhooks_bp, url_prefix="/api/webhooks")
+        app.register_blueprint(analytics_bp, url_prefix="/api/analytics")
+        app.register_blueprint(admin_bp,    url_prefix="/api/admin")
+        app.register_blueprint(chat_bp,     url_prefix="/api/chat")
+        app.register_blueprint(views_bp)
+
+        db.create_all()
+
+        # Seed default settings if not already present
+        from models import AppSettings
+        for key, val in AppSettings.DEFAULTS.items():
+            if AppSettings.get(key) is None:
+                db.session.add(AppSettings(key=key, value=val))
+        db.session.commit()
+
+    # Start follow-up scheduler (outside app_context so it runs in background)
+    from services.followup_scheduler import start_scheduler
+    start_scheduler(app)
+
+    return app

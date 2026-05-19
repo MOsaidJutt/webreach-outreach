@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}AI Chat Test{% endblock %}
+{% block page_title %}AI Conversation Tester{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Config panel -->
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white border-0 fw-semibold pt-3">
+        <i class="bi bi-sliders me-1 text-primary"></i> Test Business
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label small">Business Name</label>
+          <input type="text" class="form-control form-control-sm" id="testBizName" value="Joe's Hair Studio" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Google Rating</label>
+          <input type="number" class="form-control form-control-sm" id="testRating" value="4.8" min="1" max="5" step="0.1" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Number of Reviews</label>
+          <input type="number" class="form-control form-control-sm" id="testReviews" value="143" />
+        </div>
+        <button class="btn btn-primary btn-sm w-100" onclick="startChat()">
+          <i class="bi bi-play-fill me-1"></i> Start New Conversation
+        </button>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-0 fw-semibold pt-3">
+        <i class="bi bi-info-circle me-1 text-secondary"></i> How It Works
+      </div>
+      <div class="card-body small text-muted">
+        <p>This simulates the full SMS conversation your AI agent will have with a lead.</p>
+        <p>The bot starts automatically. Type replies as if you're the business owner.</p>
+        <p class="mb-0">Try saying: <em>"yes"</em>, <em>"not interested"</em>, <em>"stop"</em>, or <em>"what's your website?"</em></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat window -->
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm h-100 d-flex flex-column" style="min-height:600px">
+      <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-chat-dots me-1 text-success"></i> SMS Conversation Preview</span>
+        <div class="d-flex gap-2 align-items-center">
+          <span class="badge bg-success" id="chatStatus" style="display:none!important">Live</span>
+          <button class="btn btn-xs btn-outline-secondary" onclick="clearChat()">
+            <i class="bi bi-trash"></i> Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="flex-grow-1 p-3 overflow-auto" id="chatMessages" style="background:#f8f9fa; min-height:450px; max-height:500px">
+        <div class="text-center text-muted py-5" id="chatPlaceholder">
+          <i class="bi bi-chat-dots fs-1 d-block mb-2 opacity-25"></i>
+          Configure the test business on the left and click <strong>Start New Conversation</strong>
+        </div>
+      </div>
+
+      <!-- Typing indicator -->
+      <div id="typingIndicator" class="px-3 py-2 text-muted small" style="display:none">
+        <span class="spinner-grow spinner-grow-sm me-1"></span> AI is typing...
+      </div>
+
+      <!-- Input -->
+      <div class="card-footer bg-white border-top p-3">
+        <div class="input-group">
+          <input type="text" class="form-control" id="userInput"
+            placeholder="Type your reply as the business owner..."
+            onkeydown="if(event.key==='Enter') sendMessage()"
+            disabled />
+          <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()" disabled>
+            <i class="bi bi-send-fill"></i>
+          </button>
+        </div>
+        <div class="d-flex gap-2 mt-2 flex-wrap" id="quickReplies">
+          <button class="btn btn-xs btn-outline-secondary" onclick="quickReply('Yes, that\'s us!')">Yes, that's us!</button>
+          <button class="btn btn-xs btn-outline-secondary" onclick="quickReply('Yes please!')">Yes please!</button>
+          <button class="btn btn-xs btn-outline-secondary" onclick="quickReply('No thanks')">No thanks</button>
+          <button class="btn btn-xs btn-outline-secondary" onclick="quickReply('What\'s your website?')">What's your website?</button>
+          <button class="btn btn-xs btn-outline-secondary" onclick="quickReply('Stop')">Stop</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let messages = [];
+let chatActive = false;
+
+async function startChat() {
+  const bizName = document.getElementById("testBizName").value.trim() || "Test Business";
+  const rating  = parseFloat(document.getElementById("testRating").value) || 4.8;
+  const reviews = parseInt(document.getElementById("testReviews").value) || 100;
+
+  messages = [];
+  chatActive = true;
+  document.getElementById("chatPlaceholder")?.remove();
+  document.getElementById("chatMessages").innerHTML = "";
+  document.getElementById("userInput").disabled = false;
+  document.getElementById("sendBtn").disabled = false;
+  document.getElementById("chatStatus").style.cssText = "";
+
+  // Get first bot message (greeting)
+  await getBotReply(bizName, rating, reviews);
+}
+
+async function sendMessage() {
+  if (!chatActive) return;
+  const input = document.getElementById("userInput");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  const bizName = document.getElementById("testBizName").value.trim();
+  const rating  = parseFloat(document.getElementById("testRating").value);
+  const reviews = parseInt(document.getElementById("testReviews").value);
+
+  appendMessage("user", text);
+  messages.push({ role: "user", text });
+
+  await getBotReply(bizName, rating, reviews);
+}
+
+function quickReply(text) {
+  document.getElementById("userInput").value = text;
+  sendMessage();
+}
+
+async function getBotReply(bizName, rating, reviews) {
+  showTyping(true);
+  try {
+    const resp = await fetch("/api/chat/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ business_name: bizName, rating, reviews, messages }),
+    });
+    const data = await resp.json();
+    showTyping(false);
+
+    if (!resp.ok) {
+      showToast("Error: " + (data.error || "Unknown error"), "error");
+      return;
+    }
+
+    if (data.reply) {
+      appendMessage("bot", data.reply);
+      messages.push({ role: "bot", text: data.reply });
+
+      const botCount = messages.filter(m => m.role === "bot").length;
+      const ended = data.reply.includes("removed you") ||
+                    data.reply.includes("won't hear from us") ||
+                    (data.reply.includes("shortly") && botCount >= 4);
+      if (ended) {
+        document.getElementById("userInput").disabled = true;
+        document.getElementById("sendBtn").disabled = true;
+        document.getElementById("chatStatus").className = "badge bg-secondary";
+        document.getElementById("chatStatus").textContent = "Ended";
+      }
+    }
+  } catch (e) {
+    showTyping(false);
+    showToast("Connection error: " + e.message, "error");
+  }
+}
+
+function appendMessage(role, text) {
+  const isBot = role === "bot";
+  const container = document.getElementById("chatMessages");
+  const div = document.createElement("div");
+  div.className = `mb-3 d-flex ${isBot ? "justify-content-start" : "justify-content-end"}`;
+  div.innerHTML = `
+    <div style="max-width:75%">
+      <div class="rounded-3 px-3 py-2 ${isBot ? "bg-white border shadow-sm" : "bg-primary text-white"}"
+           style="white-space:pre-wrap; font-size:.9rem; line-height:1.5">${esc(text)}</div>
+      <div class="small text-muted mt-1 ${isBot ? "" : "text-end"}">${isBot ? "🤖 AI Agent" : "👤 Business"}</div>
+    </div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping(show) {
+  document.getElementById("typingIndicator").style.display = show ? "" : "none";
+}
+
+function clearChat() {
+  messages = [];
+  chatActive = false;
+  document.getElementById("chatMessages").innerHTML = `
+    <div class="text-center text-muted py-5" id="chatPlaceholder">
+      <i class="bi bi-chat-dots fs-1 d-block mb-2 opacity-25"></i>
+      Click <strong>Start New Conversation</strong> to begin
+    </div>`;
+  document.getElementById("userInput").disabled = true;
+  document.getElementById("sendBtn").disabled = true;
+  document.getElementById("userInput").value = "";
+  document.getElementById("chatStatus").style.cssText = "display:none!important";
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
+}
+</script>
+{% endblock %}

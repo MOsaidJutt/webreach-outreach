@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+{% block page_title %}Lead Management{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <div class="row g-2 align-items-center">
+      <!-- Search -->
+      <div class="col-md-3">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" class="form-control" id="searchInput" placeholder="Search name, phone, city..." />
+        </div>
+      </div>
+      <!-- Pipeline status -->
+      <div class="col-md-2">
+        <select class="form-select form-select-sm" id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="not_contacted">Not Contacted</option>
+          <option value="message_sent">Message Sent</option>
+          <option value="replied">Replied</option>
+          <option value="interested">Interested ⭐</option>
+          <option value="not_interested">Not Interested</option>
+          <option value="opted_out">Opted Out</option>
+          <option value="website_sent">Website Sent</option>
+          <option value="converted">Converted</option>
+        </select>
+      </div>
+      <!-- Phone filter -->
+      <div class="col-md-auto">
+        <select class="form-select form-select-sm" id="hasPhone" title="Phone number filter">
+          <option value="">📱 Any</option>
+          <option value="yes">📱 Has Phone</option>
+          <option value="no">🚫 No Phone</option>
+        </select>
+      </div>
+      <!-- Website filter -->
+      <div class="col-md-auto">
+        <select class="form-select form-select-sm" id="hasWebsite" title="Website filter">
+          <option value="">🌐 Any</option>
+          <option value="no">🚫 No Website</option>
+          <option value="yes">✅ Has Website</option>
+        </select>
+      </div>
+      <!-- Rating filter -->
+      <div class="col-md-auto">
+        <select class="form-select form-select-sm" id="minRating" title="Minimum rating">
+          <option value="">⭐ Any Rating</option>
+          <option value="3">⭐ 3.0+</option>
+          <option value="4">⭐ 4.0+</option>
+          <option value="4.5">⭐ 4.5+</option>
+          <option value="5">⭐ 5.0</option>
+        </select>
+      </div>
+      <!-- Sort -->
+      <div class="col-md-auto">
+        <select class="form-select form-select-sm" id="sortBy">
+          <option value="created_at">Date Added</option>
+          <option value="rating">Rating ↓</option>
+          <option value="reviews_count">Reviews ↓</option>
+          <option value="business_name">Name A–Z</option>
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <button class="btn btn-sm btn-primary" onclick="loadLeads(1)">
+          <i class="bi bi-funnel-fill"></i> Apply
+        </button>
+        <button class="btn btn-sm btn-outline-secondary ms-1" onclick="clearFilters()">
+          Clear
+        </button>
+      </div>
+      <div class="col-md-auto ms-auto">
+        <span class="text-muted small fw-semibold" id="totalCount"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Active filter chips -->
+<div id="activeFilters" class="mb-2 d-flex flex-wrap gap-1"></div>
+
+<!-- Bulk Actions -->
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+  <button class="btn btn-sm btn-outline-primary" onclick="importSelected()">
+    <i class="bi bi-cloud-upload"></i> Import Selected to GHL
+  </button>
+  <button class="btn btn-sm btn-outline-success" onclick="smsSelected()">
+    <i class="bi bi-send"></i> Send SMS to Selected
+  </button>
+  <button class="btn btn-sm btn-outline-danger" onclick="deleteSelected()">
+    <i class="bi bi-trash"></i> Delete Selected
+  </button>
+  <div class="dropdown">
+    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+      <i class="bi bi-download"></i> Export
+    </button>
+    <ul class="dropdown-menu">
+      <li><a class="dropdown-item" href="#" onclick="exportLeads('csv')">Export CSV</a></li>
+      <li><a class="dropdown-item" href="#" onclick="exportLeads('excel')">Export Excel</a></li>
+    </ul>
+  </div>
+  <span class="text-muted small ms-1" id="selectedCount"></span>
+</div>
+
+<!-- Leads Table -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="leadsTable">
+        <thead class="table-light">
+          <tr>
+            <th width="36"><input type="checkbox" id="selectAll" class="form-check-input" /></th>
+            <th>Business</th>
+            <th>Rating</th>
+            <th>Phone</th>
+            <th>Category</th>
+            <th>City</th>
+            <th>Status</th>
+            <th>GHL</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="leadsBody">
+          <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Pagination -->
+<div class="d-flex align-items-center justify-content-between mt-3" id="paginationArea">
+  <div class="text-muted small" id="pageInfo"></div>
+  <nav><ul class="pagination pagination-sm mb-0" id="pagination"></ul></nav>
+</div>
+
+<!-- Status Update Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Update Lead Status</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="modalLeadId" />
+        <div class="mb-3">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="modalStatus">
+            <option value="not_contacted">Not Contacted</option>
+            <option value="message_sent">Message Sent</option>
+            <option value="replied">Replied</option>
+            <option value="interested">Interested</option>
+            <option value="not_interested">Not Interested</option>
+            <option value="opted_out">Opted Out</option>
+            <option value="website_sent">Website Sent</option>
+            <option value="converted">Converted</option>
+          </select>
+        </div>
+        <div class="mb-3" id="websiteUrlRow" style="display:none">
+          <label class="form-label">Website URL</label>
+          <input type="url" class="form-control" id="modalWebsiteUrl" placeholder="https://..." />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Notes</label>
+          <textarea class="form-control" id="modalNotes" rows="3" placeholder="Add notes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveStatus()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+let totalPages = 1;
+let selectedIds = new Set();
+
+const STATUS_BADGE = {
+  not_contacted: "secondary",
+  message_sent: "info",
+  replied: "primary",
+  interested: "warning",
+  not_interested: "danger",
+  opted_out: "dark",
+  website_sent: "success",
+  converted: "success",
+};
+const STATUS_LABEL = {
+  not_contacted: "Not Contacted",
+  message_sent: "Message Sent",
+  replied: "Replied",
+  interested: "Interested",
+  not_interested: "Not Interested",
+  opted_out: "Opted Out",
+  website_sent: "Website Sent",
+  converted: "Converted",
+};
+
+// Pre-fill filters from URL params
+window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("status"))     document.getElementById("statusFilter").value = params.get("status");
+  if (params.get("has_phone"))  document.getElementById("hasPhone").value = params.get("has_phone");
+  if (params.get("has_website"))document.getElementById("hasWebsite").value = params.get("has_website");
+  if (params.get("min_rating")) document.getElementById("minRating").value = params.get("min_rating");
+  loadLeads(1);
+});
+
+function getFilters() {
+  return {
+    search:      document.getElementById("searchInput").value,
+    status:      document.getElementById("statusFilter").value,
+    has_phone:   document.getElementById("hasPhone").value,
+    has_website: document.getElementById("hasWebsite").value,
+    min_rating:  document.getElementById("minRating").value,
+    sort_by:     document.getElementById("sortBy").value,
+  };
+}
+
+function renderFilterChips(f) {
+  const chips = [];
+  const labels = {
+    has_phone:   { yes: "📱 Has Phone", no: "🚫 No Phone" },
+    has_website: { yes: "✅ Has Website", no: "🚫 No Website" },
+    min_rating:  { "3": "⭐ 3.0+", "4": "⭐ 4.0+", "4.5": "⭐ 4.5+", "5": "⭐ 5 only" },
+    status:      v => v.replace(/_/g, " "),
+  };
+  if (f.has_phone)   chips.push(labels.has_phone[f.has_phone]);
+  if (f.has_website) chips.push(labels.has_website[f.has_website]);
+  if (f.min_rating)  chips.push(labels.min_rating[f.min_rating]);
+  if (f.status)      chips.push("Status: " + f.status.replace(/_/g," "));
+  if (f.search)      chips.push(`"${f.search}"`);
+  const el = document.getElementById("activeFilters");
+  el.innerHTML = chips.map(c =>
+    `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1">${c}</span>`
+  ).join("");
+}
+
+async function loadLeads(page = 1) {
+  currentPage = page;
+  const f = getFilters();
+  renderFilterChips(f);
+
+  const params = new URLSearchParams({
+    page, per_page: 50,
+    search: f.search,
+    status: f.status,
+    has_phone: f.has_phone,
+    has_website: f.has_website,
+    min_rating: f.min_rating,
+    sort_by: f.sort_by,
+    sort_dir: "desc",
+  });
+
+  try {
+    const data = await api("GET", `/api/leads/?${params}`);
+    totalPages = data.pages;
+    document.getElementById("totalCount").textContent = `${data.total.toLocaleString()} leads`;
+    document.getElementById("pageInfo").textContent = `Page ${page} of ${data.pages} (${data.total} total)`;
+    renderTable(data.leads);
+    renderPagination(data.pages, page);
+  } catch (e) {
+    showToast(e.message, "error");
+  }
+}
+
+function renderTable(leads) {
+  const tbody = document.getElementById("leadsBody");
+  if (!leads.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No leads found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = leads.map(l => `
+    <tr data-id="${l.id}">
+      <td><input type="checkbox" class="form-check-input lead-cb" value="${l.id}" onchange="toggleSelect(${l.id})" ${selectedIds.has(l.id) ? "checked" : ""} /></td>
+      <td>
+        <a href="/leads/${l.id}" class="fw-semibold text-decoration-none">${esc(l.business_name || "—")}</a>
+        ${l.google_maps_url ? `<a href="${l.google_maps_url}" target="_blank" class="ms-1 text-muted small"><i class="bi bi-map"></i></a>` : ""}
+      </td>
+      <td><span class="text-warning fw-semibold">★</span> ${l.rating || "—"} <span class="text-muted small">(${l.reviews_count || 0})</span></td>
+      <td>${l.phone ? `<a href="tel:${l.phone}" class="text-decoration-none">${l.phone}</a>` : "—"}</td>
+      <td class="text-muted small">${esc(l.category || "—")}</td>
+      <td class="text-muted small">${esc(l.city || "—")}</td>
+      <td><span class="badge bg-${STATUS_BADGE[l.status] || 'secondary'}">${STATUS_LABEL[l.status] || l.status}</span></td>
+      <td>${l.imported_to_ghl ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-dash-circle text-muted"></i>'}</td>
+      <td>
+        <div class="d-flex gap-1">
+          <button class="btn btn-xs btn-outline-primary" onclick="openStatusModal(${l.id}, '${l.status}', '${esc(l.notes || '')}', '${l.website_url_sent || ''}')" title="Update Status">
+            <i class="bi bi-pencil"></i>
+          </button>
+          ${!l.imported_to_ghl ? `<button class="btn btn-xs btn-outline-info" onclick="importOne(${l.id})" title="Import to GHL"><i class="bi bi-cloud-upload"></i></button>` : ""}
+          ${l.imported_to_ghl && l.status === 'not_contacted' ? `<button class="btn btn-xs btn-outline-success" onclick="sendSMS(${l.id})" title="Send SMS"><i class="bi bi-send"></i></button>` : ""}
+          <button class="btn btn-xs btn-outline-danger" onclick="deleteLead(${l.id})" title="Delete">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`).join("");
+}
+
+function renderPagination(pages, current) {
+  const ul = document.getElementById("pagination");
+  if (pages <= 1) { ul.innerHTML = ""; return; }
+  let html = `<li class="page-item ${current === 1 ? 'disabled' : ''}">
+    <a class="page-link" href="#" onclick="loadLeads(${current - 1})">‹</a></li>`;
+  const start = Math.max(1, current - 2);
+  const end = Math.min(pages, current + 2);
+  for (let p = start; p <= end; p++) {
+    html += `<li class="page-item ${p === current ? 'active' : ''}">
+      <a class="page-link" href="#" onclick="loadLeads(${p})">${p}</a></li>`;
+  }
+  html += `<li class="page-item ${current === pages ? 'disabled' : ''}">
+    <a class="page-link" href="#" onclick="loadLeads(${current + 1})">›</a></li>`;
+  ul.innerHTML = html;
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// Checkboxes
+document.getElementById("selectAll").addEventListener("change", function() {
+  document.querySelectorAll(".lead-cb").forEach(cb => {
+    cb.checked = this.checked;
+    if (this.checked) selectedIds.add(parseInt(cb.value));
+    else selectedIds.delete(parseInt(cb.value));
+  });
+  updateSelectedCount();
+});
+
+function toggleSelect(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  const el = document.getElementById("selectedCount");
+  if (selectedIds.size > 0) {
+    el.textContent = `${selectedIds.size} selected`;
+  } else {
+    el.textContent = "";
+  }
+}
+
+// Filters
+let searchTimer;
+document.getElementById("searchInput").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadLeads(1), 400);
+});
+document.getElementById("statusFilter").addEventListener("change", () => loadLeads(1));
+document.getElementById("hasPhone").addEventListener("change",   () => loadLeads(1));
+document.getElementById("hasWebsite").addEventListener("change", () => loadLeads(1));
+document.getElementById("minRating").addEventListener("change",  () => loadLeads(1));
+document.getElementById("sortBy").addEventListener("change",     () => loadLeads(1));
+
+function clearFilters() {
+  document.getElementById("searchInput").value = "";
+  document.getElementById("statusFilter").value = "";
+  document.getElementById("hasPhone").value = "";
+  document.getElementById("hasWebsite").value = "";
+  document.getElementById("minRating").value = "";
+  document.getElementById("sortBy").value = "created_at";
+  loadLeads(1);
+}
+
+// Status modal
+const statusModal = new bootstrap.Modal(document.getElementById("statusModal"));
+
+function openStatusModal(id, status, notes, websiteUrl) {
+  document.getElementById("modalLeadId").value = id;
+  document.getElementById("modalStatus").value = status;
+  document.getElementById("modalNotes").value = notes;
+  document.getElementById("modalWebsiteUrl").value = websiteUrl || "";
+  toggleWebsiteRow();
+  statusModal.show();
+}
+
+document.getElementById("modalStatus").addEventListener("change", toggleWebsiteRow);
+function toggleWebsiteRow() {
+  const show = document.getElementById("modalStatus").value === "website_sent";
+  document.getElementById("websiteUrlRow").style.display = show ? "" : "none";
+}
+
+async function saveStatus() {
+  const id = document.getElementById("modalLeadId").value;
+  const status = document.getElementById("modalStatus").value;
+  const notes = document.getElementById("modalNotes").value;
+  const websiteUrl = document.getElementById("modalWebsiteUrl").value;
+  try {
+    await api("PUT", `/api/leads/${id}/status`, { status, notes, website_url: websiteUrl });
+    showToast("Status updated");
+    statusModal.hide();
+    loadLeads(currentPage);
+  } catch (e) {
+    showToast(e.message, "error");
+  }
+}
+
+// Actions
+async function importOne(id) {
+  try {
+    await api("POST", `/api/leads/${id}/import-to-ghl`);
+    showToast("Imported to GHL");
+    loadLeads(currentPage);
+  } catch (e) {
+    showToast(e.message, "error");
+  }
+}
+
+async function sendSMS(id) {
+  if (!confirm("Send initial SMS to this lead?")) return;
+  try {
+    await api("POST", `/api/leads/${id}/send-initial-sms`);
+    showToast("SMS sent!");
+    loadLeads(currentPage);
+  } catch (e) {
+    showToast(e.message, "error");
+  }
+}
+
+async function deleteLead(id) {
+  if (!confirm("Delete this lead? This cannot be undone.")) return;
+  try {
+    await api("DELETE", `/api/leads/${id}`);
+    showToast("Lead deleted");
+    loadLeads(currentPage);
+  } catch (e) {
+    showToast(e.message, "error");
+  }
+}
+
+async function importSelected() {
+  if (!selectedIds.size) { showToast("Select at least one lead", "error"); return; }
+  for (const id of selectedIds) {
+    try { await api("POST", `/api/leads/${id}/import-to-ghl`); } catch (e) { console.error(e); }
+  }
+  showToast(`Imported ${selectedIds.size} leads`);
+  loadLeads(currentPage);
+}
+
+async function smsSelected() {
+  if (!selectedIds.size) { showToast("Select at least one lead", "error"); return; }
+  if (!confirm(`Send SMS to ${selectedIds.size} selected leads?`)) return;
+  for (const id of selectedIds) {
+    try { await api("POST", `/api/leads/${id}/send-initial-sms`); } catch (e) { console.error(e); }
+  }
+  showToast(`SMS sent to ${selectedIds.size} leads`);
+  selectedIds.clear();
+  updateSelectedCount();
+  loadLeads(currentPage);
+}
+
+async function deleteSelected() {
+  if (!selectedIds.size) { showToast("Select at least one lead first", "error"); return; }
+  if (!confirm(`Delete ${selectedIds.size} selected leads? This cannot be undone.`)) return;
+  let deleted = 0;
+  for (const id of selectedIds) {
+    try { await api("DELETE", `/api/leads/${id}`); deleted++; } catch (e) { console.error(e); }
+  }
+  showToast(`${deleted} leads deleted`);
+  selectedIds.clear();
+  updateSelectedCount();
+  document.getElementById("selectAll").checked = false;
+  loadLeads(currentPage);
+}
+
+function exportLeads(fmt) {
+  const f = getFilters();
+  const params = new URLSearchParams({
+    format: fmt,
+    status: f.status,
+    has_phone: f.has_phone,
+    has_website: f.has_website,
+    min_rating: f.min_rating,
+  });
+  window.open(`/api/leads/export?${params}`, "_blank");
+}
+</script>
+{% endblock %}

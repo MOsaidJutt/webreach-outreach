@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Lead Detail{% endblock %}
+{% block page_title %}Lead Detail{% endblock %}
+
+{% block content %}
+<div class="row g-4" id="leadContainer">
+  <div class="col-12 text-center py-5 text-muted">Loading...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const leadId = {{ lead_id }};
+
+const STATUS_BADGE = {
+  not_contacted: "secondary", message_sent: "info", replied: "primary",
+  interested: "warning", not_interested: "danger", opted_out: "dark",
+  website_sent: "success", converted: "success",
+};
+const STATUS_LABEL = {
+  not_contacted: "Not Contacted", message_sent: "Message Sent", replied: "Replied",
+  interested: "Interested ⭐", not_interested: "Not Interested", opted_out: "Opted Out",
+  website_sent: "Website Sent", converted: "Converted 🎉",
+};
+
+async function loadLead() {
+  const data = await api("GET", `/api/leads/${leadId}`);
+  const l = data.lead;
+  const convos = data.lead.conversations || [];
+
+  document.querySelector(".topbar h4").textContent = l.business_name || "Lead Detail";
+
+  document.getElementById("leadContainer").innerHTML = `
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0 fw-semibold pt-3">Business Info</div>
+        <div class="card-body">
+          <table class="table table-sm table-borderless mb-0">
+            <tr><th class="text-muted" width="140">Business Name</th><td>${esc(l.business_name || "—")}</td></tr>
+            <tr><th class="text-muted">Rating</th><td>⭐ ${l.rating || "—"} (${l.reviews_count || 0} reviews)</td></tr>
+            <tr><th class="text-muted">Phone</th><td>${l.phone ? `<a href="tel:${l.phone}">${l.phone}</a>` : "—"}</td></tr>
+            <tr><th class="text-muted">Category</th><td>${esc(l.category || "—")}</td></tr>
+            <tr><th class="text-muted">Address</th><td>${esc(l.address || "—")}</td></tr>
+            <tr><th class="text-muted">Maps</th><td>${l.google_maps_url ? `<a href="${l.google_maps_url}" target="_blank">View on Maps</a>` : "—"}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0 fw-semibold pt-3">Pipeline Status</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <span class="badge fs-6 bg-${STATUS_BADGE[l.status] || 'secondary'}">${STATUS_LABEL[l.status] || l.status}</span>
+            <span class="text-muted small ms-2">Step ${l.conversation_step}</span>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Update Status</label>
+            <select class="form-select form-select-sm" id="statusSelect">
+              ${["not_contacted","message_sent","replied","interested","not_interested","opted_out","website_sent","converted"].map(s =>
+                `<option value="${s}" ${l.status===s?"selected":""}>${STATUS_LABEL[s]}</option>`
+              ).join("")}
+            </select>
+          </div>
+          <div class="mb-3" id="websiteUrlRow" style="${l.status==='website_sent'?'':'display:none'}">
+            <label class="form-label small fw-semibold">Website URL Sent</label>
+            <input type="url" class="form-control form-control-sm" id="websiteUrlInput" value="${l.website_url_sent || ''}" placeholder="https://..." />
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Notes</label>
+            <textarea class="form-control form-control-sm" id="notesInput" rows="3">${esc(l.notes || "")}</textarea>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="saveStatus()">Save Changes</button>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 fw-semibold pt-3">GHL Integration</div>
+        <div class="card-body">
+          <p class="mb-1 small"><strong>Contact ID:</strong> ${l.ghl_contact_id || "Not imported"}</p>
+          <p class="mb-3 small"><strong>Imported:</strong> ${l.imported_to_ghl ? "Yes" : "No"}</p>
+          ${!l.imported_to_ghl ? `<button class="btn btn-sm btn-outline-info me-2" onclick="importToGHL()"><i class="bi bi-cloud-upload"></i> Import to GHL</button>` : ""}
+          ${l.imported_to_ghl && l.status === "not_contacted" ? `<button class="btn btn-sm btn-outline-success" onclick="sendInitialSMS()"><i class="bi bi-send"></i> Send Initial SMS</button>` : ""}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 fw-semibold pt-3 d-flex justify-content-between align-items-center">
+          SMS Conversation
+          <span class="badge bg-secondary">${convos.length} messages</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="conversation-thread p-3" id="convThread">
+            ${convos.length ? convos.map(c => renderMessage(c)).join("") : '<div class="text-center text-muted py-5">No messages yet</div>'}
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById("statusSelect").addEventListener("change", () => {
+    const show = document.getElementById("statusSelect").value === "website_sent";
+    document.getElementById("websiteUrlRow").style.display = show ? "" : "none";
+  });
+}
+
+function renderMessage(c) {
+  const isOut = c.direction === "outbound";
+  const align = isOut ? "text-end" : "text-start";
+  const bubble = isOut ? "bg-primary text-white" : "bg-light";
+  const time = c.created_at ? c.created_at.substring(0,16).replace("T"," ") : "";
+  return `
+    <div class="mb-3 ${align}">
+      <div class="d-inline-block p-2 px-3 rounded-3 ${bubble}" style="max-width:75%">
+        ${esc(c.message)}
+      </div>
+      <div class="small text-muted mt-1">${isOut ? "You" : "Lead"} · ${time}</div>
+    </div>`;
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+async function saveStatus() {
+  const status = document.getElementById("statusSelect").value;
+  const notes = document.getElementById("notesInput").value;
+  const websiteUrl = document.getElementById("websiteUrlInput")?.value || "";
+  try {
+    await api("PUT", `/api/leads/${leadId}/status`, { status, notes, website_url: websiteUrl });
+    showToast("Saved!");
+    loadLead();
+  } catch (e) {
+    showToast(e.message, "error");
+  }
+}
+
+async function importToGHL() {
+  try {
+    await api("POST", `/api/leads/${leadId}/import-to-ghl`);
+    showToast("Imported to GHL!");
+    loadLead();
+  } catch (e) {
+    showToast(e.message, "error");
+  }
+}
+
+async function sendInitialSMS() {
+  if (!confirm("Send the initial greeting SMS to this lead?")) return;
+  try {
+    await api("POST", `/api/leads/${leadId}/send-initial-sms`);
+    showToast("SMS sent!");
+    loadLead();
+  } catch (e) {
+    showToast(e.message, "error");
+  }
+}
+
+loadLead();
+</script>
+{% endblock %}
