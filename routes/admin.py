@@ -56,6 +56,24 @@ def preview_followup():
     return jsonify({"leads_due_for_followup": count, "interval_days": interval_days})
 
 
+@admin_bp.route("/daily-stats", methods=["GET"])
+def daily_stats():
+    from datetime import datetime, timedelta
+    today = datetime.utcnow().date()
+    sent_today = db.session.scalar(
+        select(func.count(Conversation.id)).where(
+            Conversation.direction == "outbound",
+            func.date(Conversation.created_at) == str(today),
+        )
+    ) or 0
+    limit = int(AppSettings.get("daily_send_limit", "50"))
+    return jsonify({
+        "sent_today": sent_today,
+        "daily_limit": limit,
+        "remaining": max(0, limit - sent_today),
+    })
+
+
 @admin_bp.route("/stats", methods=["GET"])
 def stats():
     from models import ScrapingJob

@@ -32,6 +32,8 @@ class AppSettings(db.Model):
         "business_website":       "https://amzusdigital.com/",
         "business_name":          "AMZUS Digital",
         "sms_agent_name":         "Sarah",
+        "daily_send_limit":       "50",
+        "opening_message":        "Hi! Is this {business_name}? 👋 I'm {agent_name} from {company_name}.",
     }
 
 

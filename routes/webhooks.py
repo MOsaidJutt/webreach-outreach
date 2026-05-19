@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from extensions import db
 from models import Lead, Conversation
-from services.conversation_ai import get_next_message
+from services.conversation_ai import get_next_message, get_ai_reply_with_context
 from services.ghl_service import GHLService
 from sqlalchemy import select
 
@@ -59,7 +59,14 @@ def ghl_webhook():
         step=lead.conversation_step, status="received", ghl_message_id=ghl_message_id,
     ))
 
-    reply_text, new_status, new_step = get_next_message(lead, inbound_text)
+    # Try context-aware OpenAI reply first, fall back to rule-based
+    conversation_history = [c.to_dict() for c in lead.conversations]
+    ai_reply = get_ai_reply_with_context(lead, conversation_history, inbound_text)
+    if ai_reply:
+        _, new_status, new_step = get_next_message(lead, inbound_text)
+        reply_text = ai_reply
+    else:
+        reply_text, new_status, new_step = get_next_message(lead, inbound_text)
 
     lead.status = new_status
     lead.conversation_step = new_step

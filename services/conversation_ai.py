@@ -4,9 +4,6 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------ #
-# Helpers to load dynamic settings
-# ------------------------------------------------------------------ #
 
 def _setting(key):
     try:
@@ -15,8 +12,9 @@ def _setting(key):
     except Exception:
         defaults = {
             "business_website": "https://amzusdigital.com/",
-            "business_name": "AMZUS Digital",
-            "sms_agent_name": "Sarah",
+            "business_name":    "AMZUS Digital",
+            "sms_agent_name":   "Sarah",
+            "opening_message":  "Hi! Is this {business_name}? 👋 I'm {agent_name} from {company_name}.",
         }
         return defaults.get(key, "")
 
@@ -26,8 +24,11 @@ def _setting(key):
 # ------------------------------------------------------------------ #
 
 def _greeting(business_name):
-    agent = _setting("sms_agent_name")
-    return f"Hi! Is this {business_name}? 👋 I'm {agent} from {_setting('business_name')}."
+    template = _setting("opening_message")
+    return (template
+            .replace("{business_name}", business_name)
+            .replace("{agent_name}", _setting("sms_agent_name"))
+            .replace("{company_name}", _setting("business_name")))
 
 def _compliment(rating, reviews):
     return (
@@ -84,31 +85,40 @@ def _followup(business_name, count):
             f"Want me to send you the free preview link? 🌐"
         ),
     ]
-    idx = min(count - 1, len(messages) - 1)
-    return messages[idx]
+    return messages[min(count - 1, len(messages) - 1)]
 
 def _website_info(lead_name: str = "", step: int = 0):
-    """Return a natural intro when someone asks who we are."""
-    website = _setting("business_website")
-    name = _setting("business_name")
-    agent = _setting("sms_agent_name")
-
+    website  = _setting("business_website")
+    name     = _setting("business_name")
+    agent    = _setting("sms_agent_name")
     if step == 0:
-        # Still at greeting stage — introduce and re-confirm identity
         biz = f" for {lead_name}" if lead_name else ""
         return (
             f"Hi! I'm {agent} from {name} — we specialise in building professional websites "
             f"for local businesses{biz}. 😊\n\n"
             f"You can check us out at {website}\n\n"
-            f"I was reaching out because we noticed your Google profile doesn't have a website linked — "
-            f"is this the right number to discuss that?"
+            f"I was reaching out because we noticed your Google profile doesn't have a website "
+            f"linked — is this the right number to discuss that?"
         )
-    else:
-        # Mid-conversation — brief answer and keep going
-        return (
-            f"We're {name} — specialists in building websites for local businesses. "
-            f"You can see our work at {website} 😊"
-        )
+    return (
+        f"We're {name} — specialists in building websites for local businesses. "
+        f"You can see our work at {website} 😊"
+    )
+
+def _number_question():
+    return (
+        "I found your business listed on Google Maps — your details are publicly visible there. "
+        "I noticed you have great reviews but no website linked, so I reached out. 😊\n\n"
+        "If you'd prefer not to be contacted, just say STOP and I'll remove you immediately. "
+        "Otherwise, would you like to hear more?"
+    )
+
+def _objection_response(business_name):
+    return (
+        f"Totally understand! Just to be clear — there's no cost to take a look. "
+        f"We've already built a free preview for {business_name} and wanted to show you "
+        f"what's possible. Would you at least like to see it? 😊"
+    )
 
 
 # ------------------------------------------------------------------ #
@@ -122,19 +132,30 @@ POSITIVE_PATTERNS = [
     r"\babsolutely\b", r"\bof course\b", r"\bwhy not\b",
 ]
 NEGATIVE_PATTERNS = [
-    r"\bno\b", r"\bnope\b", r"\bnah\b", r"\bnot interested\b", r"\bno thanks\b",
-    r"\bno thank you\b", r"\bdont need\b", r"\bdon't need\b", r"\balready have\b",
-    r"\bhave a website\b", r"\bnot for me\b", r"\bpass\b",
+    r"\bnot interested\b", r"\bno thanks\b", r"\bno thank you\b",
+    r"\bdont need\b", r"\bdon't need\b", r"\balready have\b",
+    r"\bhave a website\b", r"\bnot for me\b", r"\bpass\b", r"\bnope\b",
 ]
 OPT_OUT_PATTERNS = [
     r"\bstop\b", r"\bunsubscribe\b", r"\bremove me\b", r"\bopt out\b",
-    r"\bopt-out\b", r"\bdo not contact\b", r"\bleave me alone\b", r"\bblock\b",
+    r"\bopt-out\b", r"\bdo not contact\b", r"\bleave me alone\b",
+    r"\bblock\b", r"\bremove my number\b", r"\bdon'?t text\b",
 ]
 WEBSITE_ASK_PATTERNS = [
-    r"\bwho are you\b", r"\bwho is this\b", r"\bwho's this\b",
+    r"\bwho are you\b", r"\bwho is this\b", r"\bwho'?s this\b",
     r"\byour website\b", r"\bmore info\b", r"\bwhere can i\b",
     r"\blearn more\b", r"\babout you\b", r"\byour company\b",
     r"\bwhat company\b", r"\bwhat business\b",
+]
+NUMBER_QUESTION_PATTERNS = [
+    r"\bwhere did you get\b", r"\bhow did you get\b", r"\bwho gave you\b",
+    r"\bwhere'd you get\b", r"\bhow'd you get\b", r"\bwhere you get\b",
+    r"\bmy number\b", r"\bthis number\b", r"\bget my\b",
+]
+OBJECTION_PATTERNS = [
+    r"\btoo busy\b", r"\bnot now\b", r"\bmaybe later\b", r"\bnot the right time\b",
+    r"\bcan'?t afford\b", r"\btoo expensive\b", r"\bdon'?t need\b",
+    r"\balready sorted\b", r"\bhave someone\b",
 ]
 CONFIRMATION_PATTERNS = [
     r"\byes\b", r"\byep\b", r"\byeah\b", r"\bthat'?s us\b", r"\bcorrect\b",
@@ -149,9 +170,17 @@ def classify_intent(message: str, expected_step: int) -> str:
         if re.search(p, text):
             return "opt_out"
 
+    for p in NUMBER_QUESTION_PATTERNS:
+        if re.search(p, text):
+            return "number_question"
+
     for p in WEBSITE_ASK_PATTERNS:
         if re.search(p, text):
             return "website_ask"
+
+    for p in OBJECTION_PATTERNS:
+        if re.search(p, text):
+            return "objection"
 
     if expected_step == 0:
         for p in NEGATIVE_PATTERNS:
@@ -175,7 +204,6 @@ def _openai_classify(text: str, step: int):
     except Exception:
         return None
 
-    # Validate key looks real before calling SDK
     if not api_key or not str(api_key).strip().startswith("sk-"):
         return None
 
@@ -186,18 +214,88 @@ def _openai_classify(text: str, step: int):
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": (
-                    "Classify this SMS reply from a small business owner who was contacted "
-                    f"about a free website at step {step}. "
-                    "Reply with ONLY one word: positive, negative, opt_out, or unclear."
+                    "Classify this SMS reply from a small business owner contacted about a free website. "
+                    f"Conversation step: {step}. "
+                    "Reply with ONLY one word: positive, negative, opt_out, objection, or unclear."
                 )},
                 {"role": "user", "content": text},
             ],
             max_tokens=5, temperature=0,
         )
         result = response.choices[0].message.content.strip().lower()
-        return result if result in ("positive", "negative", "opt_out", "unclear") else None
+        return result if result in ("positive", "negative", "opt_out", "objection", "unclear") else None
     except Exception as e:
         logger.warning(f"OpenAI classification failed: {e}")
+        return None
+
+
+def get_ai_reply_with_context(lead, conversation_history: list, inbound_text: str):
+    """
+    Use OpenAI with full conversation history for intelligent context-aware replies.
+    Falls back to rule-based if OpenAI unavailable.
+    """
+    try:
+        api_key = current_app.config.get("OPENAI_API_KEY", "")
+    except Exception:
+        api_key = ""
+
+    if not api_key or not str(api_key).strip().startswith("sk-"):
+        return None
+
+    try:
+        import openai
+        client = openai.OpenAI(api_key=api_key.strip())
+
+        website  = _setting("business_website")
+        name     = _setting("business_name")
+        agent    = _setting("sms_agent_name")
+
+        system_prompt = f"""You are {agent}, a friendly sales assistant from {name}.
+You are having an SMS conversation with the owner of '{lead.business_name}'.
+Their business has a {lead.rating}-star Google rating with {lead.reviews_count} reviews.
+They currently have NO website linked to their Google profile.
+
+Your goal:
+1. Confirm you're speaking to the right person
+2. Compliment their Google rating
+3. Point out they have no website and are losing potential customers
+4. Offer a free website preview you've already built for them
+5. If they say yes → confirm someone will be in touch shortly
+
+Key facts:
+- Company website: {website}
+- You've already built them a FREE preview website
+- No obligation, no pressure
+- If they ask how you got their number: from Google Maps public listing
+- If they say STOP/unsubscribe: apologise and confirm removal
+
+Rules:
+- Keep replies SHORT (1-3 sentences max for SMS)
+- Be warm, professional, and human
+- Never be pushy
+- Remember the full conversation context
+- If they've already said yes, don't re-offer
+"""
+
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # Add conversation history
+        for msg in conversation_history[-10:]:
+            role = "assistant" if msg.get("direction") == "outbound" else "user"
+            messages.append({"role": role, "content": msg.get("message", "")})
+
+        # Add current message
+        messages.append({"role": "user", "content": inbound_text})
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=150,
+            temperature=0.7,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.warning(f"OpenAI context reply failed: {e}")
         return None
 
 
@@ -206,24 +304,25 @@ def _openai_classify(text: str, step: int):
 # ------------------------------------------------------------------ #
 
 def get_next_message(lead, inbound_text: str):
-    """
-    Returns (reply_message, new_status, new_step).
-    Returns (None, status, step) when no auto-reply needed.
-    """
-    step = lead.conversation_step or 0
+    step   = lead.conversation_step or 0
     intent = classify_intent(inbound_text, expected_step=step)
-    name = lead.business_name or "there"
+    name   = lead.business_name or "there"
     rating = lead.rating or "4+"
     reviews = lead.reviews_count or "many"
 
-    logger.info(f"Lead {lead.id} '{name}' | step={step} | intent={intent}")
-
-    # Website question — always answer regardless of step
-    if intent == "website_ask":
-        return _website_info(name, step), lead.status, step
+    logger.info(f"Lead {lead.id} '{name}' | step={step} | intent={intent} | msg='{inbound_text[:50]}'")
 
     if intent == "opt_out":
         return _opt_out(), "opted_out", step
+
+    if intent == "number_question":
+        return _number_question(), lead.status, step
+
+    if intent == "website_ask":
+        return _website_info(name, step), lead.status, step
+
+    if intent == "objection":
+        return _objection_response(name), lead.status, step
 
     if step == 0:
         if intent == "negative":
@@ -256,40 +355,39 @@ def get_followup_message(lead) -> str:
 
 
 # ------------------------------------------------------------------ #
-# Simulation (for the in-app chat test UI)
+# Simulation
 # ------------------------------------------------------------------ #
 
 def simulate_conversation(business_name: str, rating: float, reviews: int, messages: list) -> str:
-    """
-    Simulate the AI response given a conversation history.
-    messages = [{"role": "user"|"bot", "text": "..."}]
-    Returns the next bot message.
-    """
-    bot_count = sum(1 for m in messages if m.get("role") == "bot")
+    bot_count    = sum(1 for m in messages if m.get("role") == "bot")
     current_step = max(0, bot_count - 1) if bot_count > 0 else 0
 
-    # Use a simple namespace to avoid Python class-body scoping issues
     class FakeLead:
         pass
 
     fake = FakeLead()
     fake.id = 0
-    fake.business_name = business_name
-    fake.rating = rating
-    fake.reviews_count = reviews
+    fake.business_name    = business_name
+    fake.rating           = rating
+    fake.reviews_count    = reviews
     fake.conversation_step = current_step
-    fake.followup_count = 0
-    fake.status = "message_sent"
+    fake.followup_count   = 0
+    fake.status           = "message_sent"
 
     if not messages:
         return get_initial_message(fake)
 
-    last_user = next(
-        (m["text"] for m in reversed(messages) if m.get("role") == "user"), ""
-    )
-
+    last_user = next((m["text"] for m in reversed(messages) if m.get("role") == "user"), "")
     if not last_user:
         return get_initial_message(fake)
+
+    # Build history for context-aware AI
+    history = [{"direction": "outbound" if m.get("role") == "bot" else "inbound",
+                "message": m.get("text", "")} for m in messages]
+
+    ai_reply = get_ai_reply_with_context(fake, history, last_user)
+    if ai_reply:
+        return ai_reply
 
     reply, _, _ = get_next_message(fake, last_user)
     return reply or "Thanks for your message! Our team will be in touch shortly. 😊"

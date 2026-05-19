@@ -232,15 +232,33 @@ def send_initial_sms(lead_id):
 
 @leads_bp.route("/send-bulk-sms", methods=["POST"])
 def send_bulk_sms():
+    from models import AppSettings
+    from datetime import datetime
+    from sqlalchemy import func as sqlfunc
+
+    # Check daily limit
+    daily_limit = int(AppSettings.get("daily_send_limit", "50"))
+    today = datetime.utcnow().date()
+    sent_today = db.session.scalar(
+        select(sqlfunc.count(Conversation.id)).where(
+            Conversation.direction == "outbound",
+            sqlfunc.date(Conversation.created_at) == str(today),
+        )
+    ) or 0
+    remaining = max(0, daily_limit - sent_today)
+
+    if remaining == 0:
+        return jsonify({"message": f"Daily limit of {daily_limit} messages reached. Try again tomorrow.", "results": {"sent": 0, "failed": 0, "errors": []}}), 200
+
     stmt = select(Lead).where(
         Lead.status == "not_contacted",
         Lead.imported_to_ghl == True,
         Lead.ghl_contact_id.isnot(None),
-    )
+    ).limit(remaining)
     leads = db.session.execute(stmt).scalars().all()
 
     ghl = GHLService()
-    results = {"sent": 0, "failed": 0, "errors": []}
+    results = {"sent": 0, "failed": 0, "errors": [], "daily_limit": daily_limit, "sent_today": sent_today}
 
     for lead in leads:
         try:

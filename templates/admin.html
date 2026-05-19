@@ -5,6 +5,39 @@
 {% block content %}
 <div class="row g-4">
 
+  <!-- Daily Send Limit -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-0 fw-semibold pt-3">
+        <i class="bi bi-speedometer2 me-1 text-danger"></i> Daily SMS Limit
+      </div>
+      <div class="card-body">
+        <div class="d-flex gap-3 mb-4">
+          <div class="text-center flex-fill bg-light rounded p-3">
+            <div class="fs-2 fw-bold text-primary" id="sentToday">—</div>
+            <div class="small text-muted">Sent Today</div>
+          </div>
+          <div class="text-center flex-fill bg-light rounded p-3">
+            <div class="fs-2 fw-bold text-success" id="remaining">—</div>
+            <div class="small text-muted">Remaining</div>
+          </div>
+          <div class="text-center flex-fill bg-light rounded p-3">
+            <div class="fs-2 fw-bold text-secondary" id="dailyLimitDisplay">—</div>
+            <div class="small text-muted">Daily Limit</div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Max messages per day</label>
+          <input type="number" class="form-control" id="dailyLimit" min="1" max="500" value="50" />
+          <div class="form-text">The system will stop sending once this number is reached each day. Resets at midnight UTC.</div>
+        </div>
+        <button class="btn btn-primary" onclick="saveDailyLimit()">
+          <i class="bi bi-save me-1"></i> Save Limit
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Follow-up Automation -->
   <div class="col-lg-6">
     <div class="card border-0 shadow-sm">
@@ -14,29 +47,20 @@
       <div class="card-body">
         <div class="form-check form-switch mb-3">
           <input class="form-check-input" type="checkbox" id="followupEnabled" />
-          <label class="form-check-label fw-semibold" for="followupEnabled">
-            Enable automatic follow-ups
-          </label>
-          <div class="text-muted small mt-1">
-            Automatically re-message leads who haven't replied after N days
-          </div>
+          <label class="form-check-label fw-semibold" for="followupEnabled">Enable automatic follow-ups</label>
+          <div class="text-muted small mt-1">Re-message leads who haven't replied after N days</div>
         </div>
-
         <div class="mb-3">
           <label class="form-label">Follow-up interval <span class="text-muted">(days)</span></label>
           <input type="number" class="form-control" id="followupInterval" min="1" max="30" value="3" />
-          <div class="form-text">How many days to wait before sending a follow-up</div>
         </div>
-
-        <div class="mb-4">
+        <div class="mb-3">
           <label class="form-label">Max follow-ups per lead</label>
           <input type="number" class="form-control" id="followupMax" min="1" max="5" value="2" />
-          <div class="form-text">Stop following up after this many attempts</div>
         </div>
-
-        <div class="d-flex gap-2 align-items-center mb-3">
+        <div class="d-flex gap-2 mb-3">
           <button class="btn btn-primary" onclick="saveFollowupSettings()">
-            <i class="bi bi-save me-1"></i> Save Settings
+            <i class="bi bi-save me-1"></i> Save
           </button>
           <button class="btn btn-outline-secondary" onclick="previewFollowup()">
             <i class="bi bi-eye me-1"></i> Preview
@@ -45,13 +69,12 @@
             <i class="bi bi-play-fill me-1"></i> Run Now
           </button>
         </div>
-
         <div id="followupPreview" class="alert alert-info d-none small"></div>
       </div>
     </div>
   </div>
 
-  <!-- Business Settings -->
+  <!-- Business Identity -->
   <div class="col-lg-6">
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-white border-0 fw-semibold pt-3">
@@ -61,54 +84,97 @@
         <div class="mb-3">
           <label class="form-label">Your Business Name</label>
           <input type="text" class="form-control" id="businessName" placeholder="AMZUS Digital" />
-          <div class="form-text">Used in SMS messages when introducing yourself</div>
         </div>
         <div class="mb-3">
           <label class="form-label">Your Website</label>
           <input type="url" class="form-control" id="businessWebsite" placeholder="https://amzusdigital.com/" />
-          <div class="form-text">Sent when a lead asks "who are you?" or "your website?"</div>
+          <div class="form-text">Sent when a lead asks "who are you?" or "what's your website?"</div>
         </div>
-        <div class="mb-4">
-          <label class="form-label">Agent Name (SMS sender name)</label>
+        <div class="mb-3">
+          <label class="form-label">Agent Name</label>
           <input type="text" class="form-control" id="agentName" placeholder="Sarah" />
-          <div class="form-text">The name used to introduce yourself in the first SMS</div>
+          <div class="form-text">The name the AI introduces itself with</div>
         </div>
         <button class="btn btn-primary" onclick="saveBusinessSettings()">
-          <i class="bi bi-save me-1"></i> Save Settings
+          <i class="bi bi-save me-1"></i> Save
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Follow-up Message Preview -->
+  <!-- Opening Message Editor -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-0 fw-semibold pt-3">
+        <i class="bi bi-chat-quote me-1 text-warning"></i> Opening Message
+      </div>
+      <div class="card-body">
+        <div class="mb-2">
+          <label class="form-label">First SMS sent to every lead</label>
+          <textarea class="form-control font-monospace" id="openingMessage" rows="3"></textarea>
+          <div class="form-text mt-1">
+            Available variables:
+            <code>{business_name}</code> <code>{agent_name}</code> <code>{company_name}</code>
+          </div>
+        </div>
+        <div class="mb-3 p-3 bg-light rounded small" id="openingPreview"></div>
+        <button class="btn btn-primary" onclick="saveOpeningMessage()">
+          <i class="bi bi-save me-1"></i> Save Message
+        </button>
+        <button class="btn btn-outline-secondary ms-2" onclick="resetOpeningMessage()">
+          Reset to Default
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Conversation Previews -->
   <div class="col-12">
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-white border-0 fw-semibold pt-3">
-        <i class="bi bi-chat-quote me-1 text-warning"></i> Follow-Up Message Preview
+        <i class="bi bi-robot me-1 text-primary"></i> AI Response Preview
+        <a href="/ai-chat" class="btn btn-sm btn-outline-primary ms-2">
+          <i class="bi bi-chat-dots me-1"></i> Open Full Chat Tester
+        </a>
       </div>
       <div class="card-body">
         <div class="row g-3">
-          <div class="col-md-6">
-            <div class="border rounded p-3 bg-light">
-              <div class="small text-muted fw-semibold mb-2">Follow-up #1</div>
-              <div class="small" id="followupMsg1">
-                Hi again! 👋 Just following up — we still have that free website preview ready for <em>[Business Name]</em>. Would you like to take a look? Only takes 30 seconds!
-              </div>
+          <div class="col-md-4">
+            <div class="border rounded p-3 bg-light h-100">
+              <div class="small text-muted fw-semibold mb-2">Lead says "yes please"</div>
+              <div class="small">AI confirms interest, flags lead for follow-up ✅</div>
             </div>
           </div>
-          <div class="col-md-6">
-            <div class="border rounded p-3 bg-light">
-              <div class="small text-muted fw-semibold mb-2">Follow-up #2 (final)</div>
-              <div class="small" id="followupMsg2">
-                Last check-in from us, <em>[Business Name]</em>! We don't want you to miss out — businesses with websites get significantly more enquiries. Want me to send you the free preview link? 🌐
-              </div>
+          <div class="col-md-4">
+            <div class="border rounded p-3 bg-light h-100">
+              <div class="small text-muted fw-semibold mb-2">Lead says "where did you get my number?"</div>
+              <div class="small">AI explains Google Maps public listing and offers to remove them if they prefer</div>
             </div>
           </div>
-        </div>
-        <div class="mt-3">
-          <a href="/ai-chat" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-chat-dots me-1"></i> Test Full Conversation in AI Chat
-          </a>
+          <div class="col-md-4">
+            <div class="border rounded p-3 bg-light h-100">
+              <div class="small text-muted fw-semibold mb-2">Lead says "too busy right now"</div>
+              <div class="small">AI acknowledges objection and keeps the door open without being pushy</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="border rounded p-3 bg-light h-100">
+              <div class="small text-muted fw-semibold mb-2">Lead says "who is this?"</div>
+              <div class="small">AI introduces the company, shares website URL, and re-engages</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="border rounded p-3 bg-light h-100">
+              <div class="small text-muted fw-semibold mb-2">Lead says "stop"</div>
+              <div class="small">AI confirms removal, lead marked as Opted Out — never contacted again</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="border rounded p-3 bg-light h-100">
+              <div class="small text-muted fw-semibold mb-2">Lead says "not interested"</div>
+              <div class="small">Polite goodbye, lead marked as Not Interested</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -133,21 +199,40 @@
 
 {% block scripts %}
 <script>
+const DEFAULT_OPENING = "Hi! Is this {business_name}? 👋 I'm {agent_name} from {company_name}.";
+
 window.addEventListener("DOMContentLoaded", () => {
   loadSettings();
   loadStats();
+  loadDailyStats();
   previewFollowup();
 });
 
 async function loadSettings() {
   const data = await api("GET", "/api/admin/settings");
   const s = data.settings;
-  document.getElementById("followupEnabled").checked  = s.followup_enabled === "true";
-  document.getElementById("followupInterval").value   = s.followup_interval_days;
-  document.getElementById("followupMax").value        = s.followup_max_count;
-  document.getElementById("businessName").value       = s.business_name;
-  document.getElementById("businessWebsite").value    = s.business_website;
-  document.getElementById("agentName").value          = s.sms_agent_name;
+  document.getElementById("followupEnabled").checked   = s.followup_enabled === "true";
+  document.getElementById("followupInterval").value    = s.followup_interval_days;
+  document.getElementById("followupMax").value         = s.followup_max_count;
+  document.getElementById("businessName").value        = s.business_name;
+  document.getElementById("businessWebsite").value     = s.business_website;
+  document.getElementById("agentName").value           = s.sms_agent_name;
+  document.getElementById("dailyLimit").value          = s.daily_send_limit || 50;
+  document.getElementById("openingMessage").value      = s.opening_message || DEFAULT_OPENING;
+  updateOpeningPreview();
+}
+
+async function loadDailyStats() {
+  const data = await api("GET", "/api/admin/daily-stats");
+  document.getElementById("sentToday").textContent     = data.sent_today;
+  document.getElementById("remaining").textContent     = data.remaining;
+  document.getElementById("dailyLimitDisplay").textContent = data.daily_limit;
+}
+
+async function saveDailyLimit() {
+  await api("POST", "/api/admin/settings", { daily_send_limit: document.getElementById("dailyLimit").value });
+  showToast("Daily limit saved!");
+  loadDailyStats();
 }
 
 async function saveFollowupSettings() {
@@ -167,7 +252,36 @@ async function saveBusinessSettings() {
     sms_agent_name:   document.getElementById("agentName").value,
   });
   showToast("Business settings saved!");
+  updateOpeningPreview();
 }
+
+async function saveOpeningMessage() {
+  const msg = document.getElementById("openingMessage").value.trim();
+  if (!msg) { showToast("Message cannot be empty", "error"); return; }
+  await api("POST", "/api/admin/settings", { opening_message: msg });
+  showToast("Opening message saved!");
+}
+
+function resetOpeningMessage() {
+  document.getElementById("openingMessage").value = DEFAULT_OPENING;
+  updateOpeningPreview();
+}
+
+function updateOpeningPreview() {
+  const msg     = document.getElementById("openingMessage").value || DEFAULT_OPENING;
+  const biz     = document.getElementById("businessName")?.value || "Joe's Hair Studio";
+  const agent   = document.getElementById("agentName")?.value || "Sarah";
+  const company = document.getElementById("businessName")?.value || "AMZUS Digital";
+  const preview = msg
+    .replace("{business_name}", biz)
+    .replace("{agent_name}", agent)
+    .replace("{company_name}", company);
+  document.getElementById("openingPreview").textContent = "Preview: " + preview;
+}
+
+document.addEventListener("input", e => {
+  if (["openingMessage","businessName","agentName"].includes(e.target.id)) updateOpeningPreview();
+});
 
 async function previewFollowup() {
   const data = await api("GET", "/api/admin/followup/preview");
@@ -182,7 +296,7 @@ async function triggerNow() {
   if (!confirm("Send follow-up messages to all eligible leads now?")) return;
   const data = await api("POST", "/api/admin/followup/trigger");
   showToast(data.message);
-  setTimeout(previewFollowup, 3000);
+  setTimeout(() => { previewFollowup(); loadDailyStats(); }, 3000);
 }
 
 async function loadStats() {
