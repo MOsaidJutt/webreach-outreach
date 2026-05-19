@@ -42,7 +42,7 @@
 {% block scripts %}
 <script>
 let allLeads = [];
-let currentFilter = 'all';
+let currentFilter = 'message_sent';
 let currentLead = null;
 
 const STATUS_BADGE = {
@@ -55,8 +55,8 @@ window.addEventListener('DOMContentLoaded', loadConversations);
 
 async function loadConversations() {
   const data = await api('GET', '/api/leads/?per_page=500&sort_by=updated_at&sort_dir=desc');
-  // Only show leads that have at least one message or have been contacted
-  allLeads = data.leads.filter(l => l.status !== 'not_contacted' || l.conversation_step > 0);
+  // Show all leads that have been contacted (any status except not_contacted)
+  allLeads = data.leads.filter(l => l.status !== 'not_contacted');
   renderList();
 }
 

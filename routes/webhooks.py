@@ -55,13 +55,30 @@ def ghl_webhook():
     if not contact_id or not inbound_text:
         return jsonify({"error": "Missing contactId or message"}), 400
 
-    lead = db.session.execute(
-        select(Lead).where(Lead.ghl_contact_id == contact_id)
-    ).scalar_one_or_none()
+    lead = None
+    if contact_id:
+        lead = db.session.execute(
+            select(Lead).where(Lead.ghl_contact_id == contact_id)
+        ).scalar_one_or_none()
+
+    # Fallback: match by phone number
+    if not lead:
+        import re as _re
+        phone_raw = (payload.get("phone") or custom.get("phone") or
+                     payload.get("contactPhone", "")).strip()
+        if phone_raw:
+            clean = _re.sub(r"[^\d]", "", phone_raw)[-10:]
+            for l in db.session.execute(select(Lead)).scalars().all():
+                if l.phone and _re.sub(r"[^\d]", "", l.phone).endswith(clean):
+                    lead = l
+                    if contact_id and not lead.ghl_contact_id:
+                        lead.ghl_contact_id = contact_id
+                        db.session.commit()
+                    break
 
     if not lead:
-        logger.warning(f"SMS from unknown GHL contact: {contact_id}")
-        return jsonify({"message": "Contact not in system"}), 200
+        logger.warning(f"Webhook: no lead found for contact_id={contact_id} keys={list(payload.keys())}")
+        return jsonify({"message": "Contact not found", "received": True}), 200
 
     db.session.add(Conversation(
         lead_id=lead.id, direction="inbound", message=inbound_text,
