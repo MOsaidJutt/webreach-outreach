@@ -21,8 +21,11 @@
     <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
       <i class="bi bi-speedometer2"></i> Dashboard
     </a>
-    <a href="/leads" class="nav-link {% if '/leads' in request.path %}active{% endif %}">
+    <a href="/leads" class="nav-link {% if '/leads' in request.path and '/leads/' not in request.path %}active{% endif %}">
       <i class="bi bi-people-fill"></i> Leads
+    </a>
+    <a href="/conversations" class="nav-link {% if '/conversations' in request.path %}active{% endif %}">
+      <i class="bi bi-chat-dots-fill"></i> Conversations
     </a>
     <a href="/scraping" class="nav-link {% if '/scraping' in request.path %}active{% endif %}">
       <i class="bi bi-search"></i> Scraping Jobs

@@ -23,6 +23,10 @@ def scraping():
 def settings():
     return render_template("settings.html")
 
+@views_bp.route("/conversations")
+def conversations():
+    return render_template("conversations.html")
+
 @views_bp.route("/admin")
 def admin():
     return render_template("admin.html")

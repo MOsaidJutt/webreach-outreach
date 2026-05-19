@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Conversations{% endblock %}
+{% block page_title %}Conversations{% endblock %}
+
+{% block content %}
+<div class="row g-0" style="height: calc(100vh - 140px); border-radius:12px; overflow:hidden; box-shadow:0 1px 8px rgba(0,0,0,.08);">
+
+  <!-- Left: Conversation list -->
+  <div class="col-lg-4 border-end bg-white d-flex flex-column" style="min-width:320px;">
+
+    <!-- Search + filter -->
+    <div class="p-3 border-bottom">
+      <div class="input-group input-group-sm mb-2">
+        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" class="form-control border-start-0" id="convSearch" placeholder="Search conversations..." oninput="filterList()" />
+      </div>
+      <div class="d-flex gap-1">
+        <button class="btn btn-xs btn-primary active-filter" onclick="setFilter('all', this)">All</button>
+        <button class="btn btn-xs btn-outline-secondary" onclick="setFilter('replied', this)">Replied</button>
+        <button class="btn btn-xs btn-outline-warning" onclick="setFilter('interested', this)">Interested</button>
+        <button class="btn btn-xs btn-outline-danger" onclick="setFilter('not_interested', this)">Not Interested</button>
+      </div>
+    </div>
+
+    <!-- List -->
+    <div class="overflow-auto flex-grow-1" id="convList">
+      <div class="text-center text-muted py-5 small">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Right: Message thread -->
+  <div class="col bg-white d-flex flex-column" id="threadPanel">
+    <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+      <i class="bi bi-chat-dots fs-1 opacity-25 mb-2"></i>
+      <p class="small">Select a conversation to view messages</p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allLeads = [];
+let currentFilter = 'all';
+let currentLead = null;
+
+const STATUS_BADGE = {
+  not_contacted:'secondary', message_sent:'info', replied:'primary',
+  interested:'warning', not_interested:'danger', opted_out:'dark',
+  website_sent:'success', converted:'success',
+};
+
+window.addEventListener('DOMContentLoaded', loadConversations);
+
+async function loadConversations() {
+  const data = await api('GET', '/api/leads/?per_page=500&sort_by=updated_at&sort_dir=desc');
+  // Only show leads that have at least one message or have been contacted
+  allLeads = data.leads.filter(l => l.status !== 'not_contacted' || l.conversation_step > 0);
+  renderList();
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.active-filter').forEach(b => {
+    b.className = b.className.replace('btn-primary','btn-outline-secondary').replace(' active-filter','');
+  });
+  btn.className = btn.className.replace('btn-outline-secondary','btn-primary') + ' active-filter';
+  renderList();
+}
+
+function filterList() {
+  renderList();
+}
+
+function renderList() {
+  const search = document.getElementById('convSearch').value.toLowerCase();
+  let leads = allLeads;
+  if (currentFilter !== 'all') leads = leads.filter(l => l.status === currentFilter);
+  if (search) leads = leads.filter(l =>
+    (l.business_name||'').toLowerCase().includes(search) ||
+    (l.phone||'').includes(search)
+  );
+
+  const el = document.getElementById('convList');
+  if (!leads.length) {
+    el.innerHTML = '<div class="text-center text-muted py-5 small">No conversations found</div>';
+    return;
+  }
+
+  el.innerHTML = leads.map(l => `
+    <div class="conv-item px-3 py-2 border-bottom cursor-pointer ${currentLead?.id === l.id ? 'bg-primary bg-opacity-10' : ''}"
+         onclick="openThread(${l.id})" style="cursor:pointer;">
+      <div class="d-flex justify-content-between align-items-start">
+        <div class="fw-semibold text-truncate small" style="max-width:200px">${esc(l.business_name||'Unknown')}</div>
+        <span class="badge bg-${STATUS_BADGE[l.status]||'secondary'} ms-1" style="font-size:10px">${l.status.replace(/_/g,' ')}</span>
+      </div>
+      <div class="text-muted" style="font-size:11px">${l.phone||'No phone'} · ${l.city||''}</div>
+      <div class="text-muted text-truncate" style="font-size:11px; max-width:260px" id="preview-${l.id}">
+        ${l.last_contacted_at ? 'Last contact: ' + l.last_contacted_at.substring(0,10) : 'Not yet contacted'}
+      </div>
+    </div>`).join('');
+}
+
+async function openThread(leadId) {
+  const data = await api('GET', `/api/leads/${leadId}`);
+  const l = data.lead;
+  currentLead = l;
+  renderList(); // re-render to highlight selected
+
+  const msgs = l.conversations || [];
+  const panel = document.getElementById('threadPanel');
+
+  panel.innerHTML = `
+    <!-- Header -->
+    <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-white">
+      <div>
+        <div class="fw-semibold">${esc(l.business_name||'Unknown')}</div>
+        <div class="small text-muted">${l.phone||''} · ${l.city||''} · <span class="badge bg-${STATUS_BADGE[l.status]||'secondary'}">${l.status.replace(/_/g,' ')}</span></div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="/leads/${l.id}" class="btn btn-xs btn-outline-primary" target="_blank">
+          <i class="bi bi-person"></i> Lead
+        </a>
+        ${l.google_maps_url ? `<a href="${l.google_maps_url}" class="btn btn-xs btn-outline-secondary" target="_blank"><i class="bi bi-map"></i></a>` : ''}
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="flex-grow-1 p-3 overflow-auto" id="msgThread" style="background:#f8f9fa; max-height:calc(100vh - 320px)">
+      ${msgs.length ? msgs.map(m => renderMsg(m)).join('') : '<div class="text-center text-muted py-5">No messages yet</div>'}
+    </div>
+
+    <!-- Status update bar -->
+    <div class="p-3 border-top bg-white">
+      <div class="row g-2 align-items-center">
+        <div class="col-auto small text-muted">Update status:</div>
+        <div class="col-auto">
+          <select class="form-select form-select-sm" id="threadStatus" onchange="updateStatus(${l.id})">
+            ${['not_contacted','message_sent','replied','interested','not_interested','opted_out','website_sent','converted'].map(s =>
+              `<option value="${s}" ${l.status===s?'selected':''}>${s.replace(/_/g,' ')}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="col">
+          <input type="text" class="form-control form-control-sm" id="noteInput" placeholder="Add a note..." value="${esc(l.notes||'')}" />
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-sm btn-primary" onclick="saveNote(${l.id})">Save</button>
+        </div>
+      </div>
+    </div>`;
+
+  // Scroll to bottom
+  setTimeout(() => {
+    const t = document.getElementById('msgThread');
+    if (t) t.scrollTop = t.scrollHeight;
+  }, 100);
+}
+
+function renderMsg(m) {
+  const isOut = m.direction === 'outbound';
+  const time  = m.created_at ? m.created_at.substring(0,16).replace('T',' ') : '';
+  return `
+    <div class="mb-3 d-flex ${isOut ? 'justify-content-end' : 'justify-content-start'}">
+      <div style="max-width:70%">
+        <div class="px-3 py-2 rounded-3 ${isOut ? 'bg-primary text-white' : 'bg-white border shadow-sm'}"
+             style="font-size:.875rem; white-space:pre-wrap">${esc(m.message||'')}</div>
+        <div class="small text-muted mt-1 ${isOut?'text-end':''}">${isOut?'You (AI)':'Lead'} · ${time}</div>
+      </div>
+    </div>`;
+}
+
+async function updateStatus(leadId) {
+  const status = document.getElementById('threadStatus').value;
+  await api('PUT', `/api/leads/${leadId}/status`, { status });
+  showToast('Status updated');
+  loadConversations();
+}
+
+async function saveNote(leadId) {
+  const notes = document.getElementById('noteInput').value;
+  await api('PUT', `/api/leads/${leadId}/notes`, { notes });
+  showToast('Note saved');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}
