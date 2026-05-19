@@ -161,11 +161,16 @@ def import_to_ghl(lead_id):
     try:
         ghl = GHLService()
         contact = ghl.create_or_update_contact(lead.to_dict())
-        lead.ghl_contact_id = contact.get("id") or contact.get("contactId")
+        logger.info(f"GHL contact response: {contact}")
+        contact_id = contact.get("id") or contact.get("contactId") or contact.get("contact", {}).get("id")
+        if not contact_id:
+            logger.warning(f"No contact ID in GHL response: {contact}")
+            return jsonify({"error": f"GHL returned no contact ID. Response: {contact}"}), 500
+        lead.ghl_contact_id = contact_id
         lead.imported_to_ghl = True
         lead.imported_to_ghl_at = datetime.utcnow()
         db.session.commit()
-        return jsonify({"message": "Imported to GHL", "ghl_contact": contact, "lead": lead.to_dict()})
+        return jsonify({"message": f"Imported to GHL (ID: {contact_id})", "ghl_contact": contact, "lead": lead.to_dict()})
     except Exception as e:
         logger.error(f"GHL import failed for lead {lead_id}: {e}")
         return jsonify({"error": str(e)}), 500

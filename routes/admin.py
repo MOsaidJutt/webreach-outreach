@@ -26,6 +26,36 @@ def save_settings():
     return jsonify({"message": "Settings saved", "saved": saved})
 
 
+@admin_bp.route("/debug-ghl", methods=["GET"])
+def debug_ghl():
+    """Show exactly what the GHL token has access to."""
+    import requests as req
+    token       = current_app.config.get("GHL_ACCESS_TOKEN", "")
+    location_id = current_app.config.get("GHL_LOCATION_ID", "")
+    headers     = {"Authorization": f"Bearer {token}", "Version": "2021-07-28"}
+
+    results = {"token_prefix": token[:20] + "...", "location_id_in_env": location_id}
+
+    # Get userinfo — shows what this token is for
+    r = req.get("https://services.leadconnectorhq.com/oauth/userinfo", headers=headers, timeout=10)
+    results["userinfo_status"] = r.status_code
+    results["userinfo"] = r.json() if r.ok else r.text
+
+    # Try contacts without locationId
+    r2 = req.get("https://services.leadconnectorhq.com/contacts/", headers=headers,
+                 params={"limit": 1}, timeout=10)
+    results["contacts_no_location_status"] = r2.status_code
+    results["contacts_no_location"] = r2.json() if r2.ok else r2.text
+
+    # Try contacts with locationId
+    r3 = req.get("https://services.leadconnectorhq.com/contacts/", headers=headers,
+                 params={"locationId": location_id, "limit": 1}, timeout=10)
+    results["contacts_with_location_status"] = r3.status_code
+    results["contacts_with_location"] = r3.json() if r3.ok else r3.text
+
+    return jsonify(results)
+
+
 @admin_bp.route("/test-ghl", methods=["GET"])
 def test_ghl():
     """Test GHL API connection and return detailed status."""
