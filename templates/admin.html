@@ -217,6 +217,13 @@
     </div>
   </div>
 
+  <!-- Logs button -->
+  <div class="col-12">
+    <button class="btn btn-outline-warning w-100" onclick="toggleLogs()">
+      <i class="bi bi-terminal me-1"></i> View Debug Logs
+    </button>
+  </div>
+
   <!-- System Stats -->
   <div class="col-12">
     <div class="card border-0 shadow-sm">
@@ -255,6 +262,12 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+function toggleLogs() {
+  const panel = document.getElementById("debugPanel");
+  panel.style.display = panel.style.display === "none" ? "" : "none";
+  if (panel.style.display !== "none") loadLogs();
+}
 
 async function loadLogs() {
   try {
