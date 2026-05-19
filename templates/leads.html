@@ -283,7 +283,8 @@ function renderTable(leads) {
       <td><input type="checkbox" class="form-check-input lead-cb" value="${l.id}" onchange="toggleSelect(${l.id})" ${selectedIds.has(l.id) ? "checked" : ""} /></td>
       <td>
         <a href="/leads/${l.id}" class="fw-semibold text-decoration-none">${esc(l.business_name || "—")}</a>
-        ${l.google_maps_url ? `<a href="${l.google_maps_url}" target="_blank" class="ms-1 text-muted small"><i class="bi bi-map"></i></a>` : ""}
+        ${l.google_maps_url ? `<a href="${l.google_maps_url}" target="_blank" class="ms-1 text-muted small" title="Google Maps"><i class="bi bi-map"></i></a>` : ""}
+        ${l.google_reviews_url ? `<a href="${l.google_reviews_url}" target="_blank" class="ms-1 text-warning small" title="Google Reviews"><i class="bi bi-star-fill"></i></a>` : ""}
       </td>
       <td><span class="text-warning fw-semibold">★</span> ${l.rating || "—"} <span class="text-muted small">(${l.reviews_count || 0})</span></td>
       <td>${l.phone ? `<a href="tel:${l.phone}" class="text-decoration-none">${l.phone}</a>` : "—"}</td>

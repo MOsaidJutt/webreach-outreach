@@ -42,6 +42,7 @@ async function loadLead() {
             <tr><th class="text-muted">Category</th><td>${esc(l.category || "—")}</td></tr>
             <tr><th class="text-muted">Address</th><td>${esc(l.address || "—")}</td></tr>
             <tr><th class="text-muted">Maps</th><td>${l.google_maps_url ? `<a href="${l.google_maps_url}" target="_blank">View on Maps</a>` : "—"}</td></tr>
+            <tr><th class="text-muted">Reviews</th><td>${l.google_reviews_url ? `<a href="${l.google_reviews_url}" target="_blank">View Google Reviews</a>` : "—"}</td></tr>
           </table>
         </div>
       </div>

@@ -132,6 +132,10 @@ class Lead(db.Model):
     }
 
     def to_dict(self):
+        reviews_url = (
+            f"https://search.google.com/local/reviews?placeid={self.place_id}&q=*&hl=en&gl=US"
+            if self.place_id else ""
+        )
         return {
             "id": self.id,
             "business_name": self.business_name,
@@ -143,6 +147,7 @@ class Lead(db.Model):
             "city": self.city,
             "state": self.state,
             "google_maps_url": self.google_maps_url,
+            "google_reviews_url": reviews_url,
             "place_id": self.place_id,
             "ghl_contact_id": self.ghl_contact_id,
             "imported_to_ghl": self.imported_to_ghl,

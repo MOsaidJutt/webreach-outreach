@@ -439,6 +439,7 @@ def export_leads():
         "City": l.city,
         "State": l.state,
         "Google Maps URL": l.google_maps_url,
+        "Google Reviews URL": f"https://search.google.com/local/reviews?placeid={l.place_id}&q=*&hl=en&gl=US" if l.place_id else "",
         "Status": l.status,
         "GHL Contact ID": l.ghl_contact_id,
         "Imported to GHL": l.imported_to_ghl,

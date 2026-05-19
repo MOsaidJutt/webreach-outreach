@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WebReach — User Guide</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 14px; line-height: 1.6; }
+
+  /* Cover */
+  .cover { background: linear-gradient(135deg, #0f3460, #16213e); color: #fff; padding: 80px 60px; min-height: 260px; display: flex; flex-direction: column; justify-content: center; }
+  .cover h1 { font-size: 36px; font-weight: 700; margin-bottom: 8px; }
+  .cover p { font-size: 16px; opacity: .75; margin-bottom: 6px; }
+  .cover .url { font-size: 14px; background: rgba(255,255,255,.15); display: inline-block; padding: 6px 16px; border-radius: 20px; margin-top: 16px; }
+
+  /* Content */
+  .content { max-width: 860px; margin: 0 auto; padding: 40px 40px 60px; }
+
+  h2 { font-size: 20px; font-weight: 700; color: #0f3460; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #e8f0fe; display: flex; align-items: center; gap: 10px; }
+  h3 { font-size: 15px; font-weight: 600; color: #333; margin: 20px 0 8px; }
+  p { margin-bottom: 10px; color: #444; }
+
+  /* Steps */
+  .step-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
+  .step-card { background: #f8faff; border: 1px solid #dce8ff; border-radius: 10px; padding: 16px; text-align: center; }
+  .step-card .num { width: 36px; height: 36px; background: #0f3460; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; margin: 0 auto 10px; font-size: 16px; }
+  .step-card h4 { font-size: 13px; font-weight: 600; color: #0f3460; margin-bottom: 4px; }
+  .step-card p { font-size: 12px; color: #666; margin: 0; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th { background: #0f3460; color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; }
+  td { padding: 9px 14px; border-bottom: 1px solid #eee; }
+  tr:nth-child(even) td { background: #f8faff; }
+
+  /* Numbered list */
+  ol { padding-left: 22px; margin: 10px 0; }
+  ol li { margin-bottom: 8px; color: #444; }
+  ol li strong { color: #0f3460; }
+
+  /* Alert boxes */
+  .tip { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 13px; }
+  .note { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 13px; }
+  .warn { background: #fff8e1; border-left: 4px solid #ffc107; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 13px; }
+
+  /* Status badges */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .badge.grey { background: #eee; color: #555; }
+  .badge.blue { background: #e3f2fd; color: #1565c0; }
+  .badge.yellow { background: #fff8e1; color: #e65100; }
+  .badge.green { background: #e8f5e9; color: #2e7d32; }
+  .badge.red { background: #fce4ec; color: #c62828; }
+  .badge.dark { background: #263238; color: #fff; }
+
+  /* Chat preview */
+  .chat { background: #f5f5f5; border-radius: 12px; padding: 20px; margin: 16px 0; }
+  .msg { margin-bottom: 12px; display: flex; }
+  .msg.bot { justify-content: flex-start; }
+  .msg.user { justify-content: flex-end; }
+  .bubble { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+  .msg.bot .bubble { background: #fff; border: 1px solid #ddd; color: #333; border-radius: 4px 12px 12px 12px; }
+  .msg.user .bubble { background: #0f3460; color: #fff; border-radius: 12px 4px 12px 12px; }
+  .label { font-size: 11px; color: #999; margin-top: 4px; }
+  .msg.bot .label { text-align: left; }
+  .msg.user .label { text-align: right; }
+
+  /* URL highlight */
+  .url-box { background: #0f3460; color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; text-align: center; margin: 16px 0; letter-spacing: .5px; }
+
+  /* Page break for print */
+  .page-break { page-break-before: always; }
+
+  @media print {
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .step-card .num { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .url-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <h1>WebReach</h1>
+  <p>Automated Website Outreach System</p>
+  <p>User Guide &amp; Testing Workflow</p>
+  <div class="url">🌐 outreach.sms2cartdemo.com</div>
+</div>
+
+<div class="content">
+
+  <!-- Overview -->
+  <h2>📌 What is WebReach?</h2>
+  <p>WebReach is an automated outreach system that finds local businesses on Google Maps with great ratings but <strong>no website</strong>, then contacts them via SMS using an AI agent. When a business shows interest, you are alerted to create their website and send them the link.</p>
+
+  <div class="step-grid">
+    <div class="step-card">
+      <div class="num">1</div>
+      <h4>Scrape</h4>
+      <p>Find businesses on Google Maps with no website</p>
+    </div>
+    <div class="step-card">
+      <div class="num">2</div>
+      <h4>Contact</h4>
+      <p>AI agent sends and manages SMS conversations</p>
+    </div>
+    <div class="step-card">
+      <div class="num">3</div>
+      <h4>Convert</h4>
+      <p>Flag interested leads and send them their website</p>
+    </div>
+  </div>
+
+  <!-- Access -->
+  <h2>🔗 Accessing the System</h2>
+  <div class="url-box">https://outreach.sms2cartdemo.com</div>
+  <p>Open the link in any browser. No login required. The dashboard loads immediately with your pipeline overview.</p>
+
+  <!-- Step 1 -->
+  <h2>Step 1 — Find Leads (Scraping)</h2>
+  <p>Go to <strong>Scraping Jobs</strong> in the left sidebar.</p>
+
+  <h3>Quick Search (API)</h3>
+  <ol>
+    <li>Click the <strong>API Search</strong> tab</li>
+    <li>Enter a business type — e.g. <strong>restaurants</strong>, <strong>hair salons</strong>, <strong>plumbers</strong></li>
+    <li>Enter a location — e.g. <strong>Bristol UK</strong> or <strong>Miami FL</strong></li>
+    <li>Click <strong>Start Scraping</strong></li>
+    <li>A progress dialog appears. Results load in <strong>1–3 minutes</strong></li>
+    <li>Click <strong>View Leads</strong> when the job shows "completed"</li>
+  </ol>
+
+  <div class="tip">
+    <strong>💡 Better Results:</strong> Use the <strong>Import from Outscraper CSV</strong> tab for more accurate "no website" filtering. Export from app.outscraper.com with filters: Has website = No, Rating ≥ 4.0, Has phone = Yes.
+  </div>
+
+  <!-- Step 2 -->
+  <h2>Step 2 — Filter Your Leads</h2>
+  <p>Go to <strong>Leads</strong> in the sidebar. Use the filter bar at the top to narrow down your target list.</p>
+
+  <table>
+    <tr><th>Filter</th><th>Recommended Setting</th><th>Why</th></tr>
+    <tr><td>📱 Phone</td><td>Has Phone</td><td>You can only SMS leads with a phone number</td></tr>
+    <tr><td>🌐 Website</td><td>No Website</td><td>These are your target — businesses that need a site</td></tr>
+    <tr><td>⭐ Rating</td><td>4.0+</td><td>Higher rated businesses are better prospects</td></tr>
+  </table>
+
+  <p>This filtered view shows your ideal outreach list. You can export it at any time using the <strong>Export CSV</strong> or <strong>Export Excel</strong> buttons.</p>
+
+  <!-- Step 3 -->
+  <h2>Step 3 — Import to GHL &amp; Send SMS</h2>
+  <ol>
+    <li>From the <strong>Dashboard</strong>, click <strong>Import All to GHL</strong> — this creates contacts in Go High Level</li>
+    <li>Then click <strong>Send Bulk SMS</strong> — the AI agent sends the first message to all imported leads</li>
+  </ol>
+
+  <div class="note">
+    <strong>ℹ️ Individual lead:</strong> On the Leads page, use the ☁️ icon to import one lead to GHL and the ✉️ icon to send SMS to one lead.
+  </div>
+
+  <!-- Step 4 -->
+  <h2 class="page-break">Step 4 — The AI Conversation</h2>
+  <p>Once SMS is sent, the AI agent handles all replies automatically. Here is what the conversation looks like:</p>
+
+  <div class="chat">
+    <div class="msg bot">
+      <div>
+        <div class="bubble">Hi! Is this Joe's Hair Studio? 👋 I'm Sarah from AMZUS Digital.</div>
+        <div class="label">🤖 AI Agent — Step 1</div>
+      </div>
+    </div>
+    <div class="msg user">
+      <div>
+        <div class="bubble">Yes, that's us!</div>
+        <div class="label">Business owner</div>
+      </div>
+    </div>
+    <div class="msg bot">
+      <div>
+        <div class="bubble">You have an impressive 4.8-star Google rating with 143 reviews — that really stands out! ⭐<br><br>However, we noticed there's no website linked to your Google profile. That means customers may not be finding you online, which could be costing you sales every day.</div>
+        <div class="label">🤖 AI Agent — Step 2</div>
+      </div>
+    </div>
+    <div class="msg user">
+      <div>
+        <div class="bubble">Oh, I didn't know that...</div>
+        <div class="label">Business owner</div>
+      </div>
+    </div>
+    <div class="msg bot">
+      <div>
+        <div class="bubble">We've actually put together a free preview website for Joe's Hair Studio. Would you like me to send you the link so you can take a look? No obligation at all! 🌐</div>
+        <div class="label">🤖 AI Agent — Step 3</div>
+      </div>
+    </div>
+    <div class="msg user">
+      <div>
+        <div class="bubble">Yes please!</div>
+        <div class="label">Business owner</div>
+      </div>
+    </div>
+    <div class="msg bot">
+      <div>
+        <div class="bubble">Wonderful! I'll have that link ready for you shortly. One of our team will be in touch very soon with your personalised website. 😊</div>
+        <div class="label">🤖 AI Agent — Step 4 — Lead flagged as INTERESTED ✅</div>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Reply from Business</th><th>AI Response</th><th>Status Set To</th></tr>
+    <tr><td>"Yes" / "Sure" / "OK"</td><td>Interested acknowledgement</td><td><span class="badge yellow">Interested</span></td></tr>
+    <tr><td>"No" / "Not interested"</td><td>Polite goodbye</td><td><span class="badge red">Not Interested</span></td></tr>
+    <tr><td>"Stop" / "Unsubscribe"</td><td>Removal confirmation</td><td><span class="badge dark">Opted Out</span></td></tr>
+    <tr><td>"What's your website?"</td><td>Shares amzusdigital.com</td><td>No change</td></tr>
+  </table>
+
+  <!-- Step 5 -->
+  <h2>Step 5 — Handle Interested Leads</h2>
+  <p>When a lead says yes, their status changes to <span class="badge yellow">Interested</span> and they are tagged in GHL for manual follow-up.</p>
+
+  <ol>
+    <li>Go to <strong>Leads</strong> → filter by Status: <strong>Interested</strong></li>
+    <li>Create their website on <strong>Lovable</strong> (lovable.dev)</li>
+    <li>Click the ✏️ pencil icon on the lead</li>
+    <li>Change status to <strong>Website Sent</strong></li>
+    <li>Paste the Lovable website URL</li>
+    <li>Send the link to the business via GHL manually</li>
+    <li>When they convert, update status to <strong>Converted</strong></li>
+  </ol>
+
+  <!-- Step 6 -->
+  <h2>Step 6 — Auto Follow-Up</h2>
+  <p>Leads that don't reply automatically receive follow-up messages after a set number of days.</p>
+
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>Where to Change</th></tr>
+    <tr><td>Follow-up interval</td><td>Every 3 days</td><td>Admin → Follow-Up Settings</td></tr>
+    <tr><td>Max follow-ups</td><td>2 messages</td><td>Admin → Follow-Up Settings</td></tr>
+    <tr><td>Enable/disable</td><td>Enabled</td><td>Admin → Toggle switch</td></tr>
+  </table>
+
+  <div class="tip">
+    <strong>💡 Run Now:</strong> Go to <strong>Admin → Run Now</strong> to trigger follow-ups immediately without waiting for the scheduled time.
+  </div>
+
+  <!-- Pipeline -->
+  <h2 class="page-break">Pipeline Status Reference</h2>
+  <table>
+    <tr><th>Status</th><th>Meaning</th><th>Action Required</th></tr>
+    <tr><td><span class="badge grey">Not Contacted</span></td><td>Lead scraped, no SMS sent yet</td><td>Import to GHL → Send SMS</td></tr>
+    <tr><td><span class="badge blue">Message Sent</span></td><td>Initial greeting sent</td><td>Wait for reply</td></tr>
+    <tr><td><span class="badge blue">Replied</span></td><td>AI conversation in progress</td><td>AI handles automatically</td></tr>
+    <tr><td><span class="badge yellow">Interested ⭐</span></td><td>Lead said yes to website</td><td>Create website on Lovable → Send link</td></tr>
+    <tr><td><span class="badge red">Not Interested</span></td><td>Lead declined</td><td>No action needed</td></tr>
+    <tr><td><span class="badge dark">Opted Out</span></td><td>Requested no contact</td><td>Do not contact again</td></tr>
+    <tr><td><span class="badge green">Website Sent</span></td><td>Website link delivered</td><td>Follow up on decision</td></tr>
+    <tr><td><span class="badge green">Converted 🎉</span></td><td>Paying customer</td><td>Onboard them</td></tr>
+  </table>
+
+  <!-- Dashboard -->
+  <h2>Dashboard Metrics</h2>
+  <table>
+    <tr><th>Metric</th><th>What it Means</th></tr>
+    <tr><td>Total Businesses</td><td>All leads scraped and stored</td></tr>
+    <tr><td>Messages Sent</td><td>Leads that have been contacted via SMS</td></tr>
+    <tr><td>Interested Leads</td><td>Leads that said yes to the website offer</td></tr>
+    <tr><td>Converted</td><td>Leads that became paying customers</td></tr>
+    <tr><td>Response Rate</td><td>% of contacted leads that replied</td></tr>
+    <tr><td>Interest Rate</td><td>% of replies that were positive</td></tr>
+    <tr><td>Conversion Rate</td><td>% of interested leads that converted</td></tr>
+  </table>
+
+  <!-- AI Chat Test -->
+  <h2>Testing the AI — AI Chat Test Page</h2>
+  <p>Before running a real campaign, test the AI conversation:</p>
+  <ol>
+    <li>Go to <strong>AI Chat Test</strong> in the sidebar</li>
+    <li>Enter a business name, Google rating, and review count</li>
+    <li>Click <strong>Start New Conversation</strong></li>
+    <li>Reply as if you are the business owner</li>
+    <li>Try: <em>"yes"</em>, <em>"no"</em>, <em>"stop"</em>, <em>"what's your website?"</em></li>
+  </ol>
+
+  <div class="note">
+    <strong>ℹ️</strong> This is a simulation only — no real SMS is sent during testing.
+  </div>
+
+  <!-- Export -->
+  <h2>Exporting Data</h2>
+  <p>Export your leads at any time in CSV or Excel format:</p>
+  <ul style="padding-left:20px; color:#444;">
+    <li style="margin-bottom:6px"><strong>Top right of any page</strong> → Export CSV / Export Excel (exports all leads)</li>
+    <li style="margin-bottom:6px"><strong>Leads page → Export button</strong> → exports only the currently filtered view</li>
+  </ul>
+  <p>For example: filter by <strong>Interested</strong> then export to get a clean list of all interested leads.</p>
+
+  <!-- FAQ -->
+  <h2>FAQ</h2>
+
+  <h3>Will opted-out leads ever be messaged again?</h3>
+  <p>No. Once a lead's status is Opted Out, the system never messages them again.</p>
+
+  <h3>Can the same business be scraped twice?</h3>
+  <p>No. The system deduplicates by Google Place ID and phone number. The same business will not be imported twice.</p>
+
+  <h3>What happens after a lead says yes?</h3>
+  <p>The AI sends a final acknowledgement and stops auto-replying. You'll see the lead under <strong>Leads → Interested</strong>. All further communication is manual via GHL.</p>
+
+  <h3>How do I change what the AI says?</h3>
+  <p>Go to <strong>Admin → Business Identity</strong> to update your business name, website URL, and agent name. These update all future messages instantly.</p>
+
+  <h3>What if a lead has a website but the filter didn't catch it?</h3>
+  <p>Use the Outscraper CSV import method (Option B in Step 1) for the most accurate "no website" filtering, as it uses Outscraper's native server-side filter.</p>
+
+  <!-- Footer -->
+  <div style="margin-top:50px; padding-top:20px; border-top:1px solid #eee; text-align:center; color:#999; font-size:12px;">
+    WebReach Outreach Automation System &nbsp;|&nbsp; outreach.sms2cartdemo.com &nbsp;|&nbsp; Powered by AMZUS Digital
+  </div>
+
+</div>
+
+</body>
+</html>
