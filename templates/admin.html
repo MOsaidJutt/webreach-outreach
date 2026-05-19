@@ -5,13 +5,43 @@
 {% block content %}
 
 <!-- Top action bar -->
-<div class="d-flex gap-2 mb-3">
+<div class="d-flex gap-2 mb-3 flex-wrap">
   <button class="btn btn-warning" onclick="toggleLogs()">
-    <i class="bi bi-terminal-fill me-1"></i> View Debug Logs
+    <i class="bi bi-terminal-fill me-1"></i> View App Logs
+  </button>
+  <button class="btn btn-success" onclick="toggleSmsLogs()">
+    <i class="bi bi-chat-dots me-1"></i> View SMS Logs
+  </button>
+  <button class="btn btn-info text-white" onclick="showTestModal()">
+    <i class="bi bi-bug me-1"></i> Test Webhook
   </button>
   <button class="btn btn-outline-secondary" onclick="loadStats(); loadDailyStats();">
     <i class="bi bi-arrow-clockwise me-1"></i> Refresh Stats
   </button>
+</div>
+
+<!-- Test webhook modal -->
+<div class="modal fade" id="testModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">🧪 Test Webhook → AI Flow</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">This sends a fake inbound SMS to your webhook to test if the AI responds correctly. Uses a real lead from your database.</p>
+        <div class="mb-3">
+          <label class="form-label">Test Message (simulates lead reply)</label>
+          <input type="text" class="form-control" id="testMessage" value="Yes please!" />
+        </div>
+        <div id="testResult" class="d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success" onclick="runWebhookTest()">Send Test</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="row g-4">
@@ -191,7 +221,25 @@
     </div>
   </div>
 
-  <!-- Debug Logs (hidden, click title 5x to reveal) -->
+  <!-- App Logs Panel -->
+  <div class="col-12" id="appLogsPanel" style="display:none">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-dark text-white border-0 pt-3 d-flex justify-content-between">
+        <span><i class="bi bi-terminal me-1"></i> Application Logs (last 200 lines)</span>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-light" onclick="loadAppLogs()"><i class="bi bi-arrow-clockwise"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="document.getElementById('appLogsPanel').style.display='none'">Hide</button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div id="appLogsContent" style="background:#1a1a2e; color:#00ff00; font-family:monospace; font-size:11px; max-height:400px; overflow-y:auto; padding:12px;">
+          Click refresh to load logs...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMS Debug Logs Panel -->
   <div class="col-12" id="debugPanel" style="display:none">
     <div class="card border-0 shadow-sm border-warning">
       <div class="card-header bg-warning bg-opacity-10 border-0 fw-semibold pt-3 d-flex justify-content-between align-items-center">
@@ -275,9 +323,51 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 function toggleLogs() {
+  const panel = document.getElementById("appLogsPanel");
+  panel.style.display = panel.style.display === "none" ? "" : "none";
+  if (panel.style.display !== "none") loadAppLogs();
+}
+
+function toggleSmsLogs() {
   const panel = document.getElementById("debugPanel");
   panel.style.display = panel.style.display === "none" ? "" : "none";
   if (panel.style.display !== "none") loadLogs();
+}
+
+async function loadAppLogs() {
+  const el = document.getElementById("appLogsContent");
+  el.textContent = "Loading...";
+  try {
+    const data = await api("GET", "/api/admin/app-logs?lines=200");
+    if (data.lines && data.lines.length) {
+      el.innerHTML = data.lines.map(l => {
+        const color = l.includes("ERROR") ? "#ff4444" : l.includes("WARNING") ? "#ffaa00" : l.includes("INFO") ? "#00ff00" : "#cccccc";
+        return `<div style="color:${color}">${esc(l)}</div>`;
+      }).join("");
+    } else {
+      el.textContent = data.message || "No logs yet.";
+    }
+  } catch(e) { el.textContent = "Error: " + e.message; }
+}
+
+function showTestModal() {
+  new bootstrap.Modal(document.getElementById("testModal")).show();
+}
+
+async function runWebhookTest() {
+  const msg = document.getElementById("testMessage").value;
+  const resultEl = document.getElementById("testResult");
+  resultEl.className = "alert alert-info d-block";
+  resultEl.textContent = "Testing...";
+  try {
+    const data = await api("POST", "/api/admin/test-webhook", { message: msg });
+    resultEl.className = "alert alert-success d-block";
+    resultEl.innerHTML = `<strong>✅ ${data.message}</strong><br>Webhook: ${data.webhook_status}<br><small>${JSON.stringify(data.webhook_response)}</small>`;
+    setTimeout(() => loadAppLogs(), 2000);
+  } catch(e) {
+    resultEl.className = "alert alert-danger d-block";
+    resultEl.textContent = "❌ " + e.message;
+  }
 }
 
 async function loadLogs() {

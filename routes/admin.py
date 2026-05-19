@@ -155,6 +155,70 @@ def daily_stats():
     })
 
 
+@admin_bp.route("/app-logs", methods=["GET"])
+def app_logs():
+    """Return last N lines of the application log file."""
+    import os
+    lines = int(request.args.get("lines", 200))
+    log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "instance", "app.log")
+    if not os.path.exists(log_path):
+        return jsonify({"lines": [], "message": "No log file yet — logs appear after first activity"})
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+        last = all_lines[-lines:]
+        return jsonify({"lines": [l.rstrip() for l in reversed(last)]})
+    except Exception as e:
+        return jsonify({"lines": [], "error": str(e)})
+
+
+@admin_bp.route("/test-webhook", methods=["POST"])
+def test_webhook():
+    """Send a fake inbound SMS to test the full webhook → AI flow."""
+    data = request.get_json() or {}
+    lead_id = data.get("lead_id")
+
+    from models import Lead
+    from sqlalchemy import select
+
+    if lead_id:
+        lead = db.session.get(Lead, lead_id)
+    else:
+        lead = db.session.execute(
+            select(Lead).where(
+                Lead.imported_to_ghl == True,
+                Lead.ghl_contact_id.isnot(None),
+                Lead.status == "message_sent"
+            ).limit(1)
+        ).scalar_one_or_none()
+
+    if not lead:
+        return jsonify({"error": "No suitable lead found. Import a lead to GHL first."}), 400
+
+    import requests as req
+    test_payload = {
+        "type": "InboundMessage",
+        "messageType": "SMS",
+        "contactId": lead.ghl_contact_id or "test_contact",
+        "conversationId": lead.ghl_conversation_id or "test_conv",
+        "message": data.get("message", "Yes"),
+    }
+    app_url = current_app.config.get("APP_URL", "http://localhost:5000")
+    try:
+        r = req.post(f"{app_url}/api/webhooks/ghl",
+                     json=test_payload,
+                     headers={"Content-Type": "application/json"},
+                     timeout=15)
+        return jsonify({
+            "message": f"Test sent for lead: {lead.business_name}",
+            "webhook_status": r.status_code,
+            "webhook_response": r.json() if r.content else {},
+            "test_message": test_payload["message"],
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @admin_bp.route("/logs", methods=["GET"])
 def logs():
     """Return recent webhook activity and conversations for debugging."""
