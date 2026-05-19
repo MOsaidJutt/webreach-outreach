@@ -247,7 +247,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("adminTitle").addEventListener("click", () => {
     titleClicks++;
-    if (titleClicks >= 5) {
+    if (titleClicks >= 3) {
       titleClicks = 0;
       const panel = document.getElementById("debugPanel");
       panel.style.display = panel.style.display === "none" ? "" : "none";
