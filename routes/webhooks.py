@@ -30,18 +30,21 @@ def ghl_webhook():
         return jsonify({"error": "Invalid signature"}), 401
 
     payload = request.get_json(force=True, silent=True) or {}
-    event_type = payload.get("type", "")
+    event_type   = payload.get("type", "")
+    message_type = payload.get("messageType", "SMS")
 
-    if event_type != "InboundMessage":
-        return jsonify({"message": "Event ignored"}), 200
+    # Accept InboundMessage events, workflow webhooks (no type), or any SMS event
+    if event_type and event_type not in ("InboundMessage", "SMS"):
+        return jsonify({"message": f"Event type '{event_type}' ignored"}), 200
 
-    if payload.get("messageType", "") != "SMS":
+    if message_type and message_type not in ("SMS", ""):
         return jsonify({"message": "Non-SMS ignored"}), 200
 
-    contact_id = payload.get("contactId", "")
-    conversation_id = payload.get("conversationId", "")
-    inbound_text = payload.get("message", "").strip()
-    ghl_message_id = payload.get("messageId", "")
+    # Handle both GHL native webhook format and GHL Workflow webhook format
+    contact_id      = payload.get("contactId") or payload.get("contact_id") or payload.get("customData", {}).get("contactId", "")
+    conversation_id = payload.get("conversationId") or payload.get("conversation_id", "")
+    inbound_text    = (payload.get("message") or payload.get("body") or payload.get("messageBody") or "").strip()
+    ghl_message_id  = payload.get("messageId") or payload.get("message_id", "")
 
     if not contact_id or not inbound_text:
         return jsonify({"error": "Missing contactId or message"}), 400
