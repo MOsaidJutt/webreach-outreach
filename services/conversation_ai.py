@@ -32,57 +32,60 @@ def _greeting(business_name):
 
 def _compliment(rating, reviews):
     return (
-        f"That's great! We noticed you have an impressive {rating}-star Google rating "
-        f"with {reviews} reviews — that really stands out! ⭐\n\n"
-        f"However, we also noticed there's no website linked to your Google profile. "
-        f"That means potential customers searching online may not find you easily, "
-        f"which could be costing you sales every day."
+        f"We came across {{}}'s Google profile — {rating} stars with {reviews} reviews. "
+        f"That's genuinely impressive and shows real trust from your customers.\n\n"
+        f"One thing we noticed though — there's no website linked to your profile. "
+        f"That means people searching for you online may be going to a competitor instead."
     )
 
 def _offer(business_name):
     return (
-        f"We've actually already put together a free preview website for {business_name}. "
-        f"Would you like me to send you the link so you can take a look? "
-        f"No obligation at all — just want to show you what's possible! 🌐"
+        f"I have an idea — let's try this approach.\n\n"
+        f"How about I build a complete website for {business_name} completely free of charge? "
+        f"If you like the result, we can move forward together. "
+        f"If not, we can simply end it there with no obligations.\n\n"
+        f"For this demo project, there will be absolutely no charges."
     )
 
 def _interested_ack():
     return (
-        "Wonderful! I'll have that link ready for you shortly. "
-        "One of our team will be in touch very soon with your personalised website. "
-        "Looking forward to showing you what we've built! 😊"
+        "That's brilliant — I'll get started on it right away!\n\n"
+        "One of our team will be in touch very shortly with your completed website. "
+        "We think you'll love what we've put together for you. 😊"
     )
 
 def _not_interested():
     return (
-        "No problem at all — I completely understand! "
-        "If you ever change your mind in the future, feel free to reach out. "
-        "Have a great day! 👋"
+        "Absolutely no problem — I respect that completely. "
+        "If you ever change your mind down the line, you know where we are. "
+        "Wishing you all the best! 👋"
     )
 
 def _opt_out():
     return (
-        "Of course! I've removed you from our list and you won't hear from us again. "
+        "Of course — I've removed you from our list and you won't hear from us again. "
         "Sorry for any inconvenience, and have a wonderful day! 🙏"
     )
 
 def _unclear(business_name):
     return (
-        f"Thanks for getting back to us! Just to confirm — would you like to see the "
-        f"free website preview we've put together for {business_name}? "
-        f"A simple yes or no works perfectly 😊"
+        f"Just to be clear — this is completely free, no strings attached. "
+        f"We build the website for {business_name} at no cost. "
+        f"If you love it, great — if not, no worries at all. "
+        f"Would you like to see it? A simple yes or no is perfect 😊"
     )
 
 def _followup(business_name, count):
     messages = [
         (
-            f"Hi again! 👋 Just following up — we still have that free website preview "
-            f"ready for {business_name}. Would you like to take a look? Only takes 30 seconds!"
+            f"Hi again! Just a quick follow-up — our offer still stands. "
+            f"We'd love to build a free website for {business_name}, no charge, no obligation. "
+            f"Would you like to see what we can do? 🌐"
         ),
         (
-            f"Last check-in from us, {business_name}! We don't want you to miss out — "
-            f"businesses with websites get significantly more enquiries. "
-            f"Want me to send you the free preview link? 🌐"
+            f"Last message from us — we genuinely believe a website would make a real difference for {business_name}. "
+            f"Our offer: we build it completely free. You only pay if you love it and want to keep it. "
+            f"Worth a look?"
         ),
     ]
     return messages[min(count - 1, len(messages) - 1)]
