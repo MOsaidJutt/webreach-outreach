@@ -40,10 +40,16 @@ def ghl_webhook():
     if message_type and message_type not in ("SMS", ""):
         return jsonify({"message": "Non-SMS ignored"}), 200
 
-    # Handle both GHL native webhook format and GHL Workflow webhook format
-    contact_id      = payload.get("contactId") or payload.get("contact_id") or payload.get("customData", {}).get("contactId", "")
-    conversation_id = payload.get("conversationId") or payload.get("conversation_id", "")
-    inbound_text    = (payload.get("message") or payload.get("body") or payload.get("messageBody") or "").strip()
+    # GHL Workflow sends custom data merged at top level or nested under customData
+    custom = payload.get("customData") or {}
+
+    contact_id      = (payload.get("contactId") or payload.get("contact_id") or
+                       custom.get("contactId") or payload.get("id", ""))
+    conversation_id = (payload.get("conversationId") or payload.get("conversation_id") or
+                       custom.get("conversationId", ""))
+    inbound_text    = (payload.get("message") or custom.get("message") or
+                       payload.get("body") or payload.get("messageBody") or
+                       payload.get("last_message_body", "")).strip()
     ghl_message_id  = payload.get("messageId") or payload.get("message_id", "")
 
     if not contact_id or not inbound_text:
