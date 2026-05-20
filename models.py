@@ -42,12 +42,10 @@ class AppSettings(db.Model):
         "msg_opening": "Hi, is this the owner of {business_name}?",
 
         "msg_compliment": (
-            "Do you have 60 seconds? I'd love to introduce myself and share something I spotted.\n\n"
-            "I'm {agent_name} from {business_name} — we help local businesses get found online.\n\n"
-            "Your {rating}-star rating with {reviews} reviews is genuinely impressive. "
-            "But I noticed there's no website linked to your Google profile, which means Google isn't showing "
-            "you to people actively searching right now. Your competitors are getting those customers.\n\n"
-            "The good news? This is completely fixable — and we can show you exactly how, at no cost to you."
+            "Great! Thanks for confirming. I'm {agent_name} from {business_name} — we build professional websites for local businesses.\n\n"
+            "I noticed something on your Google profile that's actively costing you customers, "
+            "and I'd love to show you how to fix it — completely free of charge, no catch, no obligation.\n\n"
+            "Do you have 60 seconds for me to explain?"
         ),
 
         "msg_offer": (
@@ -119,7 +117,7 @@ class AppSettings(db.Model):
             "and offer them a completely FREE website demo with zero obligation.\n\n"
             "CONVERSATION FLOW:\n"
             "1. Confirm you have the right person\n"
-            "2. Introduce yourself + company + ask for 60 seconds of their time\n"
+            "2. Introduce yourself + company + ALWAYS mention it's completely FREE + end with a direct question\n"
             "3. Compliment their rating, then reveal the gap (no website = lost customers)\n"
             "4. Make the free demo offer — ZERO cost, ZERO obligation to keep it\n"
             "5. If interested — confirm team will send the link shortly\n\n"
