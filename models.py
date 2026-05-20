@@ -94,16 +94,14 @@ class AppSettings(db.Model):
         ),
 
         "msg_followup_1": (
-            "Hi again — just checking back in. "
-            "We still have that free website ready for {business_name}. "
-            "Every day without a website is another day customers are going elsewhere. "
-            "Want us to send you the link?"
+            "Hi again! I messaged a couple of days ago but may have caught you at a busy time.\n\n"
+            "Just wanted to make sure my message reached the right person — is this still {business_name}?"
         ),
 
         "msg_followup_2": (
-            "Last one from us — the free website for {business_name} is ready to go. "
-            "No cost, no commitment. Just take a look and decide. "
-            "If not, we completely understand and won't contact you again."
+            "Last message from us, promise! I had something I genuinely think could help {business_name}, "
+            "but want to make sure you actually received my earlier message.\n\n"
+            "If this is the wrong number or not a good time, just let me know. No hard feelings at all 👋"
         ),
 
         "msg_who_are_you": (
