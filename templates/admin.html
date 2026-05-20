@@ -183,28 +183,24 @@
     </div>
   </div>
 
-  <!-- Opening Message Editor -->
+  <!-- Opening Message — redirect to AI Settings -->
   <div class="col-lg-6">
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-white border-0 fw-semibold pt-3">
         <i class="bi bi-chat-quote me-1 text-warning"></i> Opening Message
       </div>
       <div class="card-body">
-        <div class="mb-2">
-          <label class="form-label">First SMS sent to every lead</label>
-          <textarea class="form-control font-monospace" id="openingMessage" rows="3"></textarea>
-          <div class="form-text mt-1">
-            Available variables:
-            <code>{business_name}</code> <code>{agent_name}</code> <code>{company_name}</code>
+        <div class="alert alert-info d-flex gap-2 mb-3">
+          <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+          <div>
+            The opening message is now managed in <strong>AI Settings</strong> under
+            <em>Message Templates → Opening Message</em>. All message templates, follow-ups and the AI system
+            prompt live there.
           </div>
         </div>
-        <div class="mb-3 p-3 bg-light rounded small" id="openingPreview"></div>
-        <button class="btn btn-primary" onclick="saveOpeningMessage()">
-          <i class="bi bi-save me-1"></i> Save Message
-        </button>
-        <button class="btn btn-outline-secondary ms-2" onclick="resetOpeningMessage()">
-          Reset to Default
-        </button>
+        <a href="/conversation-settings" class="btn btn-primary">
+          <i class="bi bi-robot me-1"></i> Go to AI Settings
+        </a>
       </div>
     </div>
   </div>
