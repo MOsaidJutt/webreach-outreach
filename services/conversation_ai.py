@@ -84,12 +84,14 @@ def _openai_reply(lead, conversation_history: list, inbound_text: str) -> str | 
 
         messages.append({"role": "user", "content": inbound_text})
 
+        model = _s("ai_model") or "gpt-4o"
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=messages,
             max_tokens=200,
             temperature=0.75,
         )
+        logger.info(f"Using model: {model}")
         reply = response.choices[0].message.content.strip()
         logger.info(f"OpenAI reply for lead {lead.id}: '{reply[:80]}'")
         return reply

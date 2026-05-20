@@ -22,6 +22,31 @@
 
 <!-- ═══ TAB: AI System Prompt ═══ -->
 <div id="tab-prompt">
+  <!-- Model selector -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row align-items-center g-3">
+        <div class="col-auto">
+          <label class="form-label fw-semibold mb-0">GPT Model</label>
+        </div>
+        <div class="col-md-3">
+          <select class="form-select" id="ai_model" onchange="save('ai_model')">
+            <option value="gpt-4o">gpt-4o — Best quality ⭐ (Recommended)</option>
+            <option value="gpt-4o-mini">gpt-4o-mini — Fast &amp; cheap</option>
+            <option value="gpt-4-turbo">gpt-4-turbo — Balanced</option>
+            <option value="gpt-3.5-turbo">gpt-3.5-turbo — Cheapest</option>
+          </select>
+        </div>
+        <div class="col">
+          <div class="small text-muted">
+            <strong>gpt-4o</strong> gives the best conversation quality for sales outreach — handles objections, builds rapport, stays on-message.
+            For cost savings use <strong>gpt-4o-mini</strong>.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="card border-0 shadow-sm">
     <div class="card-header bg-white border-0 fw-semibold pt-3">
       AI System Prompt

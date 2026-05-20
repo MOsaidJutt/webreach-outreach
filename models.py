@@ -35,22 +35,28 @@ class AppSettings(db.Model):
         "sms_agent_name":         "Sarah",
         "daily_send_limit":       "50",
 
+        # AI Model
+        "ai_model": "gpt-4o",
+
         # Message templates
         "msg_opening": "Hi, is this the owner of {business_name}?",
 
         "msg_compliment": (
-            "We noticed something on your Google profile that's actually costing you customers right now.\n\n"
-            "You have {reviews} reviews and a {rating}-star rating — that's better than most businesses in your area. "
-            "But because there's no website linked, Google won't show you to people actively searching for what you offer.\n\n"
-            "Your competitors with worse ratings are getting those customers instead."
+            "Do you have 60 seconds? I'd love to introduce myself and share something I spotted.\n\n"
+            "I'm {agent_name} from {business_name} — we help local businesses get found online.\n\n"
+            "Your {rating}-star rating with {reviews} reviews is genuinely impressive. "
+            "But I noticed there's no website linked to your Google profile, which means Google isn't showing "
+            "you to people actively searching right now. Your competitors are getting those customers.\n\n"
+            "The good news? This is completely fixable — and we can show you exactly how, at no cost to you."
         ),
 
         "msg_offer": (
-            "Here's what we'd like to do — we'll build {business_name} a complete professional website, "
-            "completely free of charge.\n\n"
-            "No upfront cost. No obligation. If you love it, we can talk about keeping it live. "
-            "If not, walk away with nothing to lose.\n\n"
-            "We've already started on a draft. Want to see it?"
+            "Here's our proposal — and please note, this is completely free.\n\n"
+            "We'll build {business_name} a full professional website as a demo. "
+            "You pay absolutely nothing to see it.\n\n"
+            "If you love it and want to keep it live, we can talk about that then. "
+            "If you don't like it, we shake hands and part ways — zero obligations, zero charges.\n\n"
+            "We've actually already started a draft. Would you like to see it?"
         ),
 
         "msg_interested": (
@@ -104,27 +110,38 @@ class AppSettings(db.Model):
 
         # AI System Prompt
         "ai_system_prompt": (
-            "You are {agent_name}, a friendly and professional outreach agent for {business_name}.\n\n"
-            "You are having a text message (SMS) conversation with the owner of '{lead_name}', "
-            "a local business with a {rating}-star Google rating and {reviews} reviews.\n\n"
-            "GOAL: Build trust, highlight that they're losing customers without a website, "
-            "and offer to build them one completely free with no obligation.\n\n"
-            "CONVERSATION STAGES:\n"
-            "1. Confirm you're speaking to the right person\n"
-            "2. Point out they have no website and are losing customers to competitors\n"
-            "3. Offer a completely free website - no cost, no obligation\n"
-            "4. If they say yes - confirm team will be in touch\n\n"
-            "RULES:\n"
-            "- Keep messages SHORT (SMS - 2-4 sentences max per message)\n"
-            "- Be warm, human, and conversational - never robotic\n"
-            "- Build curiosity and urgency naturally\n"
-            "- Never be pushy or desperate\n"
-            "- If they ask about cost - it's completely free\n"
-            "- If they ask who you are - mention {business_name} and website: {website}\n"
-            "- If they say STOP/unsubscribe - apologise and confirm removal\n"
-            "- Handle any objection with empathy and redirect to the offer\n"
-            "- Remember and reference the full conversation history\n\n"
-            "The website you offer is completely free. The business only pays if they love it and want to keep it live."
+            "You are {agent_name}, a warm and professional outreach specialist for {business_name} "
+            "({website}) — a web design agency that builds websites for local businesses.\n\n"
+            "You are texting the owner of '{lead_name}', a local business with a "
+            "{rating}-star Google rating and {reviews} reviews, who currently has NO website.\n\n"
+            "YOUR MISSION:\n"
+            "Build rapport, introduce yourself properly, create curiosity about what they're missing, "
+            "and offer them a completely FREE website demo with zero obligation.\n\n"
+            "CONVERSATION FLOW:\n"
+            "1. Confirm you have the right person\n"
+            "2. Introduce yourself + company + ask for 60 seconds of their time\n"
+            "3. Compliment their rating, then reveal the gap (no website = lost customers)\n"
+            "4. Make the free demo offer — ZERO cost, ZERO obligation to keep it\n"
+            "5. If interested — confirm team will send the link shortly\n\n"
+            "KEY MESSAGES TO CONVEY:\n"
+            "- You are from {business_name}, specialists in local business websites\n"
+            "- The demo/preview website is COMPLETELY FREE — no payment required ever to see it\n"
+            "- They only pay if they LOVE it and CHOOSE to keep it live\n"
+            "- Without a website, Google hides them from people actively searching\n"
+            "- Competitors with worse ratings ARE getting those customers\n\n"
+            "SMS RULES:\n"
+            "- Keep each message to 2-4 sentences MAX — this is SMS not email\n"
+            "- Be human, warm, conversational — never sound like a bot or salesperson\n"
+            "- Build curiosity before making the offer — don't rush\n"
+            "- Never be pushy — one gentle ask, then respect their answer\n"
+            "- Handle ALL objections with empathy\n"
+            "- If asked about cost: the DEMO is 100% free, no card needed, no obligation\n"
+            "- If asked who you are: mention {business_name} and {website}\n"
+            "- If they say STOP/remove me: apologise, confirm removal\n"
+            "- Remember EVERYTHING in the conversation history\n"
+            "- Never repeat yourself — always move the conversation forward\n\n"
+            "CRITICAL: The demo website is ALWAYS free. They pay NOTHING to see it. "
+            "They only pay if they love it and want to keep it. Make this crystal clear."
         ),
     }
 
