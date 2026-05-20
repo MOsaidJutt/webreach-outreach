@@ -1,3 +1,4 @@
+from datetime import date
 from flask import Blueprint, request, jsonify, current_app
 from extensions import db
 from models import AppSettings, Lead, Conversation
@@ -66,6 +67,52 @@ def reset_default():
         return jsonify({"error": "Unknown key"}), 400
     AppSettings.set(key, default)
     return jsonify({"key": key, "value": default})
+
+
+@admin_bp.route("/detect-timezone", methods=["POST"])
+def detect_timezone():
+    """Detect recommended timezone from a list of lead IDs."""
+    data    = request.get_json() or {}
+    lead_ids = data.get("lead_ids", [])
+    if not lead_ids:
+        # Use all imported leads
+        from models import Lead
+        from sqlalchemy import select
+        leads = db.session.execute(
+            select(Lead.id).where(Lead.imported_to_ghl == True)
+        ).scalars().all()
+        lead_ids = list(leads)
+
+    from services.smart_sender import detect_timezone_from_leads
+    result = detect_timezone_from_leads(lead_ids, current_app._get_current_object())
+    return jsonify(result)
+
+
+@admin_bp.route("/smart-send/status", methods=["GET"])
+def smart_send_status():
+    from models import AppSettings
+    from services.smart_sender import _get_todays_limit, _count_sent_today
+    app = current_app._get_current_object()
+    limit      = _get_todays_limit(app)
+    sent_today = _count_sent_today(app)
+    return jsonify({
+        "enabled":       AppSettings.get("smart_send_enabled", "false") == "true",
+        "today_limit":   limit,
+        "sent_today":    sent_today,
+        "remaining":     max(0, limit - sent_today),
+        "start_date":    AppSettings.get("warmup_start_date", ""),
+        "send_timezone": AppSettings.get("send_timezone", "America/New_York"),
+        "send_start":    AppSettings.get("send_start_time", "07:00"),
+        "send_end":      AppSettings.get("send_end_time", "18:00"),
+    })
+
+
+@admin_bp.route("/smart-send/start-warmup", methods=["POST"])
+def start_warmup():
+    from models import AppSettings
+    AppSettings.set("warmup_start_date", date.today().isoformat())
+    AppSettings.set("smart_send_enabled", "true")
+    return jsonify({"message": f"Warm-up started from today. Day 1 limit: {AppSettings.get('warmup_start_limit', '20')} messages."})
 
 
 @admin_bp.route("/reset-all-defaults", methods=["POST"])

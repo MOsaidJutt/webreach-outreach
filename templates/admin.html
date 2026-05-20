@@ -279,6 +279,87 @@
     </div>
   </div>
 
+  <!-- Smart Send Scheduler -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm" style="border-left:4px solid #0d6efd !important">
+      <div class="card-header bg-white border-0 fw-semibold pt-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-send-check-fill me-1 text-primary"></i> Smart Send Scheduler</span>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-secondary" id="smartSendBadge">Loading...</span>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="smartSendEnabled" onchange="toggleSmartSend()" />
+            <label class="form-check-label small" for="smartSendEnabled">Enable</label>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-4">
+          <div class="col-4 text-center"><div class="fs-3 fw-bold text-primary" id="ssTodayLimit">—</div><div class="small text-muted">Today's Limit</div></div>
+          <div class="col-4 text-center"><div class="fs-3 fw-bold text-success" id="ssSentToday">—</div><div class="small text-muted">Sent Today</div></div>
+          <div class="col-4 text-center"><div class="fs-3 fw-bold text-warning" id="ssRemaining">—</div><div class="small text-muted">Remaining</div></div>
+        </div>
+        <div class="row g-3">
+          <div class="col-lg-6">
+            <div class="border rounded p-3">
+              <div class="fw-semibold mb-3">📈 Warm-Up Settings</div>
+              <div class="mb-2 row g-2 align-items-center">
+                <label class="col-5 small text-muted">Start (day 1)</label>
+                <div class="col-7"><div class="input-group input-group-sm"><input type="number" class="form-control" id="warmup_start_limit" value="20" min="5" /><span class="input-group-text">msgs/day</span></div></div>
+              </div>
+              <div class="mb-2 row g-2 align-items-center">
+                <label class="col-5 small text-muted">Increase/day</label>
+                <div class="col-7"><div class="input-group input-group-sm"><input type="number" class="form-control" id="warmup_daily_increase" value="2" min="1" /><span class="input-group-text">msgs</span></div></div>
+              </div>
+              <div class="mb-2 row g-2 align-items-center">
+                <label class="col-5 small text-muted">Max limit</label>
+                <div class="col-7"><div class="input-group input-group-sm"><input type="number" class="form-control" id="warmup_max_limit" value="200" min="50" /><span class="input-group-text">msgs/day</span></div></div>
+              </div>
+              <div class="small text-muted bg-light p-2 rounded mt-2" id="warmupPreviewText">Day 1: 20 → Day 5: 28 → Day 10: 38 → Day 30: 78...</div>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="border rounded p-3">
+              <div class="fw-semibold mb-3">🕐 Sending Window</div>
+              <div class="mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <label class="small text-muted">Timezone</label>
+                  <button class="btn btn-xs btn-outline-primary" onclick="autoDetectTimezone()"><i class="bi bi-geo-alt me-1"></i> Auto-detect</button>
+                </div>
+                <select class="form-select form-select-sm" id="send_timezone">
+                  <optgroup label="United States">
+                    <option value="America/New_York">Eastern (EST) — NY, FL, GA</option>
+                    <option value="America/Chicago">Central (CST) — TX, IL, TN</option>
+                    <option value="America/Denver">Mountain (MST) — CO, AZ</option>
+                    <option value="America/Los_Angeles">Pacific (PST) — CA, WA</option>
+                    <option value="America/Phoenix">Arizona (no DST)</option>
+                  </optgroup>
+                  <optgroup label="United Kingdom">
+                    <option value="Europe/London">London (GMT/BST)</option>
+                  </optgroup>
+                  <option value="UTC">UTC</option>
+                </select>
+                <div class="small text-info mt-1" id="tzDetectResult"></div>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-6"><label class="small text-muted">Start time</label><input type="time" class="form-control form-control-sm" id="send_start_time" value="07:00" /></div>
+                <div class="col-6"><label class="small text-muted">End time</label><input type="time" class="form-control form-control-sm" id="send_end_time" value="18:00" /></div>
+              </div>
+              <div class="row g-2">
+                <div class="col-6"><label class="small text-muted">Min gap</label><div class="input-group input-group-sm"><input type="number" class="form-control" id="send_min_interval_mins" value="3" min="1" /><span class="input-group-text">min</span></div></div>
+                <div class="col-6"><label class="small text-muted">Max gap</label><div class="input-group input-group-sm"><input type="number" class="form-control" id="send_max_interval_mins" value="12" min="1" /><span class="input-group-text">min</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-primary" onclick="saveSmartSendSettings()"><i class="bi bi-save me-1"></i> Save Settings</button>
+          <button class="btn btn-success" onclick="startWarmup()"><i class="bi bi-play-fill me-1"></i> Start Warm-Up from Today</button>
+        </div>
+        <div class="small mt-2" id="smartSendMsg"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- SMS Debug Logs Panel -->
   <div class="col-12" id="debugPanel" style="display:none">
     <div class="card border-0 shadow-sm border-warning">
@@ -349,6 +430,7 @@ window.addEventListener("DOMContentLoaded", () => {
   loadSettings();
   loadStats();
   loadDailyStats();
+  loadSmartSendStatus();
   previewFollowup();
 
   document.getElementById("adminTitle").addEventListener("click", () => {
@@ -494,6 +576,88 @@ async function loadLogs() {
     showToast("Failed to load logs: " + e.message, "error");
   }
 }
+
+// ─── Smart Send Scheduler ────────────────────────────────────────────────────
+
+async function loadSmartSendStatus() {
+  try {
+    const d = await api("GET", "/api/admin/smart-send/status");
+    document.getElementById("smartSendEnabled").checked = d.enabled;
+    document.getElementById("smartSendBadge").textContent = d.enabled ? "● Active" : "○ Off";
+    document.getElementById("smartSendBadge").className = d.enabled ? "badge bg-success" : "badge bg-secondary";
+    document.getElementById("ssTodayLimit").textContent  = d.today_limit;
+    document.getElementById("ssSentToday").textContent   = d.sent_today;
+    document.getElementById("ssRemaining").textContent   = d.remaining;
+    if (d.send_timezone) document.getElementById("send_timezone").value    = d.send_timezone;
+    if (d.send_start)    document.getElementById("send_start_time").value  = d.send_start;
+    if (d.send_end)      document.getElementById("send_end_time").value    = d.send_end;
+    updateWarmupPreview();
+  } catch(e) { console.warn("Smart send status error:", e); }
+}
+
+async function toggleSmartSend() {
+  const enabled = document.getElementById("smartSendEnabled").checked;
+  await api("POST", "/api/admin/settings", { smart_send_enabled: enabled ? "true" : "false" });
+  showToast(enabled ? "Smart Send enabled" : "Smart Send disabled");
+  loadSmartSendStatus();
+}
+
+async function saveSmartSendSettings() {
+  await api("POST", "/api/admin/settings", {
+    warmup_start_limit:     document.getElementById("warmup_start_limit").value,
+    warmup_daily_increase:  document.getElementById("warmup_daily_increase").value,
+    warmup_max_limit:       document.getElementById("warmup_max_limit").value,
+    send_timezone:          document.getElementById("send_timezone").value,
+    send_start_time:        document.getElementById("send_start_time").value,
+    send_end_time:          document.getElementById("send_end_time").value,
+    send_min_interval_mins: document.getElementById("send_min_interval_mins").value,
+    send_max_interval_mins: document.getElementById("send_max_interval_mins").value,
+  });
+  showToast("Smart Send settings saved!");
+  updateWarmupPreview();
+  loadSmartSendStatus();
+}
+
+async function startWarmup() {
+  if (!confirm("Start warm-up from today? Day 1 will begin now and the limit will increase daily.")) return;
+  const data = await api("POST", "/api/admin/smart-send/start-warmup");
+  showToast(data.message);
+  loadSmartSendStatus();
+}
+
+async function autoDetectTimezone() {
+  const el = document.getElementById("tzDetectResult");
+  el.textContent = "Detecting...";
+  try {
+    const data = await api("POST", "/api/admin/detect-timezone", { lead_ids: [] });
+    const tz = data.recommended_tz;
+    document.getElementById("send_timezone").value = tz;
+    const tzName = document.getElementById("send_timezone").options[document.getElementById("send_timezone").selectedIndex]?.text || tz;
+    el.textContent = `✅ Recommended: ${tzName} (${data.tz_counts[tz] || 0} leads)`;
+    el.className = "small text-success mt-1";
+  } catch(e) {
+    el.textContent = "Could not detect — using default";
+    el.className = "small text-warning mt-1";
+  }
+}
+
+function updateWarmupPreview() {
+  const start = parseInt(document.getElementById("warmup_start_limit")?.value || 20);
+  const inc   = parseInt(document.getElementById("warmup_daily_increase")?.value || 2);
+  const max   = parseInt(document.getElementById("warmup_max_limit")?.value || 200);
+  const el    = document.getElementById("warmupPreviewText");
+  if (!el) return;
+  const d5  = Math.min(start + (4 * inc), max);
+  const d10 = Math.min(start + (9 * inc), max);
+  const d30 = Math.min(start + (29 * inc), max);
+  el.textContent = `Day 1: ${start} → Day 5: ${d5} → Day 10: ${d10} → Day 30: ${d30} → Max: ${max}/day`;
+}
+
+document.addEventListener("input", e => {
+  if (["warmup_start_limit","warmup_daily_increase","warmup_max_limit"].includes(e.target.id)) {
+    updateWarmupPreview();
+  }
+});
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

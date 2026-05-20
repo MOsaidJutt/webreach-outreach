@@ -43,8 +43,9 @@ def create_app(config_object=None):
                 db.session.add(AppSettings(key=key, value=val))
         db.session.commit()
 
-    # Start follow-up scheduler (outside app_context so it runs in background)
     from services.followup_scheduler import start_scheduler
+    from services.smart_sender import start_smart_scheduler
     start_scheduler(app)
+    start_smart_scheduler(app)
 
     return app

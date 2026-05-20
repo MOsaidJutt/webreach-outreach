@@ -38,6 +38,18 @@ class AppSettings(db.Model):
         # AI Model
         "ai_model": "gpt-4o",
 
+        # Smart Send Scheduler
+        "smart_send_enabled":        "false",
+        "warmup_start_limit":        "20",
+        "warmup_daily_increase":     "2",
+        "warmup_max_limit":          "200",
+        "warmup_start_date":         "",
+        "send_start_time":           "07:00",
+        "send_end_time":             "18:00",
+        "send_timezone":             "America/New_York",
+        "send_min_interval_mins":    "3",
+        "send_max_interval_mins":    "12",
+
         # Message templates
         "msg_opening": "Hi, is this the owner of {business_name}?",
 
