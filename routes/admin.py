@@ -68,6 +68,17 @@ def reset_default():
     return jsonify({"key": key, "value": default})
 
 
+@admin_bp.route("/reset-all-defaults", methods=["POST"])
+def reset_all_defaults():
+    """Force-reset ALL settings to their default values."""
+    from models import AppSettings
+    count = 0
+    for key, val in AppSettings.DEFAULTS.items():
+        AppSettings.set(key, val)
+        count += 1
+    return jsonify({"message": f"Reset {count} settings to defaults"})
+
+
 @admin_bp.route("/test-ghl", methods=["GET"])
 def test_ghl():
     """Test GHL API connection and return detailed status."""

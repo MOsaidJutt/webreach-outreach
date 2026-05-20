@@ -4,6 +4,12 @@
 
 {% block content %}
 
+<div class="d-flex justify-content-end mb-3">
+  <button class="btn btn-outline-danger" onclick="resetAllDefaults()">
+    <i class="bi bi-arrow-counterclockwise me-1"></i> Reset All Templates to Default
+  </button>
+</div>
+
 <div class="alert alert-info d-flex gap-2 mb-4">
   <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
   <div>
@@ -227,6 +233,13 @@ function showTab(tab) {
     const tabs = ["prompt","templates","followups","preview"];
     el.classList.toggle("active", tabs[i] === tab);
   });
+}
+
+async function resetAllDefaults() {
+  if (!confirm("Reset ALL message templates and system prompt to the latest defaults? Your customisations will be overwritten.")) return;
+  const data = await api("POST", "/api/admin/reset-all-defaults");
+  showToast(data.message);
+  await loadAllSettings();
 }
 
 async function loadAllSettings() {
