@@ -6,6 +6,7 @@ from extensions import db
 from models import ScrapingJob, Lead
 from services.outscraper_service import OutscraperService
 from sqlalchemy import select
+from auth import require_admin_password
 
 scraping_bp = Blueprint("scraping", __name__)
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ def get_job(job_id):
 
 
 @scraping_bp.route("/start", methods=["POST"])
+@require_admin_password
 def start_scraping():
     data = request.get_json() or {}
     search_query = data.get("query", "").strip()
@@ -119,6 +121,7 @@ def _run_scraping_job(app, job_id: int):
 
 
 @scraping_bp.route("/jobs/<int:job_id>", methods=["DELETE"])
+@require_admin_password
 def delete_job(job_id):
     job = db.get_or_404(ScrapingJob, job_id)
     db.session.delete(job)
@@ -127,6 +130,7 @@ def delete_job(job_id):
 
 
 @scraping_bp.route("/jobs/clear-empty", methods=["DELETE"])
+@require_admin_password
 def clear_empty_jobs():
     """Delete all jobs with 0 results."""
     from sqlalchemy import select
@@ -141,6 +145,7 @@ def clear_empty_jobs():
 
 
 @scraping_bp.route("/jobs/<int:job_id>/cancel", methods=["POST"])
+@require_admin_password
 def cancel_job(job_id):
     job = db.get_or_404(ScrapingJob, job_id)
     if job.status in ("completed", "failed"):

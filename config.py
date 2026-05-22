@@ -19,3 +19,4 @@ class Config:
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
     APP_URL = os.getenv("APP_URL", "http://localhost:5000")
     SMS_FROM_NUMBER = os.getenv("SMS_FROM_NUMBER", "")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")

@@ -490,8 +490,7 @@ async function addTestLead() {
     formData.append("file", new Blob([csv], {type:"text/csv"}), "test.csv");
     formData.append("min_rating", "0");
 
-    const r = await fetch("/api/leads/import-csv", { method:"POST", body: formData });
-    const data = await r.json();
+    const data = await apiUpload("/api/leads/import-csv", formData);
 
     if (data.results && data.results.imported > 0) {
       res.className = "alert alert-success d-block";

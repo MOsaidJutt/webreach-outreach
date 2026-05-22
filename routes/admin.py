@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, current_app
 from extensions import db
 from models import AppSettings, Lead, Conversation
 from sqlalchemy import select, func
+from auth import require_admin_password
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -16,6 +17,7 @@ def get_settings():
 
 
 @admin_bp.route("/settings", methods=["POST"])
+@require_admin_password
 def save_settings():
     data = request.get_json() or {}
     allowed = set(AppSettings.DEFAULTS.keys())
@@ -58,6 +60,7 @@ def debug_ghl():
 
 
 @admin_bp.route("/reset-default", methods=["POST"])
+@require_admin_password
 def reset_default():
     data = request.get_json() or {}
     key  = data.get("key", "")
@@ -70,6 +73,7 @@ def reset_default():
 
 
 @admin_bp.route("/detect-timezone", methods=["POST"])
+@require_admin_password
 def detect_timezone():
     """Detect recommended timezone from a list of lead IDs."""
     data    = request.get_json() or {}
@@ -108,6 +112,7 @@ def smart_send_status():
 
 
 @admin_bp.route("/smart-send/start-warmup", methods=["POST"])
+@require_admin_password
 def start_warmup():
     from models import AppSettings
     AppSettings.set("warmup_start_date", date.today().isoformat())
@@ -116,6 +121,7 @@ def start_warmup():
 
 
 @admin_bp.route("/reset-all-defaults", methods=["POST"])
+@require_admin_password
 def reset_all_defaults():
     """Force-reset ALL settings to their default values."""
     from models import AppSettings
@@ -180,6 +186,7 @@ def test_ghl():
 
 
 @admin_bp.route("/followup/trigger", methods=["POST"])
+@require_admin_password
 def trigger_followup():
     app = current_app._get_current_object()
     import threading
@@ -243,6 +250,7 @@ def app_logs():
 
 
 @admin_bp.route("/test-webhook", methods=["POST"])
+@require_admin_password
 def test_webhook():
     """Send a fake inbound SMS to test the full webhook → AI flow."""
     data = request.get_json() or {}

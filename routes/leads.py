@@ -8,6 +8,7 @@ from models import Lead, Conversation
 from services.ghl_service import GHLService
 from services.conversation_ai import get_initial_message
 from sqlalchemy import select, or_
+from auth import require_admin_password
 
 leads_bp = Blueprint("leads", __name__)
 logger = logging.getLogger(__name__)
@@ -121,6 +122,7 @@ def get_lead(lead_id):
 
 
 @leads_bp.route("/<int:lead_id>/status", methods=["PUT"])
+@require_admin_password
 def update_status(lead_id):
     lead = db.get_or_404(Lead, lead_id)
     data = request.get_json() or {}
@@ -144,6 +146,7 @@ def update_status(lead_id):
 
 
 @leads_bp.route("/<int:lead_id>/notes", methods=["PUT"])
+@require_admin_password
 def update_notes(lead_id):
     lead = db.get_or_404(Lead, lead_id)
     data = request.get_json() or {}
@@ -154,6 +157,7 @@ def update_notes(lead_id):
 
 
 @leads_bp.route("/<int:lead_id>/import-to-ghl", methods=["POST"])
+@require_admin_password
 def import_to_ghl(lead_id):
     lead = db.get_or_404(Lead, lead_id)
     if not lead.phone:
@@ -177,6 +181,7 @@ def import_to_ghl(lead_id):
 
 
 @leads_bp.route("/import-all-to-ghl", methods=["POST"])
+@require_admin_password
 def import_all_to_ghl():
     data = request.get_json() or {}
     status_filter = data.get("status", "")
@@ -208,6 +213,7 @@ def import_all_to_ghl():
 
 
 @leads_bp.route("/<int:lead_id>/send-initial-sms", methods=["POST"])
+@require_admin_password
 def send_initial_sms(lead_id):
     lead = db.get_or_404(Lead, lead_id)
 
@@ -241,6 +247,7 @@ def send_initial_sms(lead_id):
 
 
 @leads_bp.route("/send-bulk-sms", methods=["POST"])
+@require_admin_password
 def send_bulk_sms():
     from models import AppSettings
     from datetime import datetime
@@ -297,6 +304,7 @@ def send_bulk_sms():
 
 
 @leads_bp.route("/<int:lead_id>", methods=["DELETE"])
+@require_admin_password
 def delete_lead(lead_id):
     lead = db.get_or_404(Lead, lead_id)
     db.session.execute(
@@ -308,6 +316,7 @@ def delete_lead(lead_id):
 
 
 @leads_bp.route("/import-csv", methods=["POST"])
+@require_admin_password
 def import_csv():
     """
     Import leads from an Outscraper CSV export.

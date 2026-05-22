@@ -73,6 +73,34 @@
 <!-- Toast Notifications -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
 
+<!-- Admin Password Modal -->
+<div class="modal fade" id="adminPwModal" tabindex="-1" aria-labelledby="adminPwModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-semibold" id="adminPwModalLabel">
+          <i class="bi bi-shield-lock-fill text-warning me-1"></i> Admin Password Required
+        </h6>
+      </div>
+      <div class="modal-body pt-1">
+        <p class="text-muted small mb-2">Enter the admin password to make changes.</p>
+        <div id="adminPwError" class="alert alert-danger py-1 px-2 small d-none mb-2">
+          Incorrect password — try again.
+        </div>
+        <input type="password" class="form-control" id="adminPwInput"
+          placeholder="Password" onkeydown="if(event.key==='Enter')_submitPw()"
+          autocomplete="current-password" />
+      </div>
+      <div class="modal-footer border-0 pt-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="_submitPw()">
+          <i class="bi bi-unlock-fill me-1"></i> Unlock
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
@@ -101,17 +129,102 @@
     el.addEventListener("hidden.bs.toast", () => el.remove());
   }
 
-  // Global API helper
+  // ─── Admin Password Guard ──────────────────────────────────────────────────
+  let _adminPw = sessionStorage.getItem('wr_admin_pw') || '';
+  let _pwCallback = null;
+
+  function _showPwModal(showError = false) {
+    document.getElementById('adminPwError').classList.toggle('d-none', !showError);
+    document.getElementById('adminPwInput').value = '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('adminPwModal'), { backdrop: 'static' }).show();
+    setTimeout(() => document.getElementById('adminPwInput')?.focus(), 350);
+  }
+
+  function _submitPw() {
+    const val = document.getElementById('adminPwInput').value.trim();
+    if (!val) return;
+    _adminPw = val;
+    sessionStorage.setItem('wr_admin_pw', val);
+    const cb = _pwCallback;
+    _pwCallback = null;
+    bootstrap.Modal.getInstance(document.getElementById('adminPwModal'))?.hide();
+    if (cb) cb.resolve(val);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('adminPwModal').addEventListener('hidden.bs.modal', () => {
+      if (_pwCallback) {
+        const cb = _pwCallback;
+        _pwCallback = null;
+        cb.reject(new Error('pw_cancelled'));
+      }
+    });
+  });
+
+  function _requirePw(showError = false) {
+    return new Promise((resolve, reject) => {
+      if (_adminPw && !showError) { resolve(_adminPw); return; }
+      _pwCallback = { resolve, reject };
+      _showPwModal(showError);
+    });
+  }
+
+  // Global API helper — password-aware for write calls
   async function api(method, url, body = null) {
-    const opts = {
-      method,
-      headers: { "Content-Type": "application/json" },
-    };
-    if (body) opts.body = JSON.stringify(body);
-    const resp = await fetch(url, opts);
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || "Request failed");
-    return data;
+    const isWrite = method !== 'GET';
+    async function _doFetch(pw) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body !== null) opts.body = JSON.stringify(body);
+      if (pw) opts.headers['X-Admin-Password'] = pw;
+      return fetch(url, opts);
+    }
+    try {
+      let pw = isWrite ? await _requirePw() : null;
+      let resp = await _doFetch(pw);
+      if (resp.status === 403 && isWrite) {
+        const errData = await resp.json().catch(() => ({}));
+        if (errData.code === 'PASSWORD_REQUIRED') {
+          _adminPw = '';
+          sessionStorage.removeItem('wr_admin_pw');
+          pw = await _requirePw(true);
+          resp = await _doFetch(pw);
+        }
+      }
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    } catch (e) {
+      if (e.message === 'pw_cancelled') throw new Error('Action cancelled');
+      throw e;
+    }
+  }
+
+  // File upload helper — for multipart CSV imports
+  async function apiUpload(url, formData) {
+    async function _doFetch(pw) {
+      const opts = { method: 'POST', body: formData };
+      if (pw) opts.headers = { 'X-Admin-Password': pw };
+      return fetch(url, opts);
+    }
+    try {
+      let pw = await _requirePw();
+      let resp = await _doFetch(pw);
+      if (resp.status === 403) {
+        const errData = await resp.json().catch(() => ({}));
+        if (errData.code === 'PASSWORD_REQUIRED') {
+          _adminPw = '';
+          sessionStorage.removeItem('wr_admin_pw');
+          pw = await _requirePw(true);
+          resp = await _doFetch(pw);
+        }
+      }
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    } catch (e) {
+      if (e.message === 'pw_cancelled') throw new Error('Action cancelled');
+      throw e;
+    }
   }
 </script>
 {% block scripts %}{% endblock %}

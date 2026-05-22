@@ -289,10 +289,7 @@ async function uploadCSV() {
   formData.append("min_rating", minRating);
 
   try {
-    const resp = await fetch("/api/leads/import-csv", { method: "POST", body: formData });
-    const data = await resp.json();
-
-    if (!resp.ok) throw new Error(data.error || "Import failed");
+    const data = await apiUpload("/api/leads/import-csv", formData);
 
     const r = data.results;
     document.getElementById("importMsg").textContent = data.message;
