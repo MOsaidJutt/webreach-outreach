@@ -9,16 +9,17 @@
   <div class="col-lg-4 border-end bg-white d-flex flex-column" style="min-width:320px;">
 
     <!-- Search + filter -->
-    <div class="p-3 border-bottom">
+    <div class="p-3 border-bottom flex-shrink-0">
       <div class="input-group input-group-sm mb-2">
         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
         <input type="text" class="form-control border-start-0" id="convSearch" placeholder="Search conversations..." oninput="filterList()" />
       </div>
-      <div class="d-flex gap-1">
+      <div class="d-flex gap-1 flex-wrap">
         <button class="btn btn-xs btn-primary active-filter" onclick="setFilter('all', this)">All</button>
         <button class="btn btn-xs btn-outline-secondary" onclick="setFilter('replied', this)">Replied</button>
         <button class="btn btn-xs btn-outline-warning" onclick="setFilter('interested', this)">Interested</button>
         <button class="btn btn-xs btn-outline-danger" onclick="setFilter('not_interested', this)">Not Interested</button>
+        <button class="btn btn-xs btn-outline-secondary" onclick="setFilter('manual', this)">Manual Mode</button>
       </div>
     </div>
 
@@ -29,7 +30,7 @@
   </div>
 
   <!-- Right: Message thread -->
-  <div class="col bg-white d-flex flex-column" id="threadPanel">
+  <div class="col bg-white d-flex flex-column" id="threadPanel" style="min-height:0; overflow:hidden;">
     <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
       <i class="bi bi-chat-dots fs-1 opacity-25 mb-2"></i>
       <p class="small">Select a conversation to view messages</p>
@@ -42,7 +43,7 @@
 {% block scripts %}
 <script>
 let allLeads = [];
-let currentFilter = 'message_sent';
+let currentFilter = 'all';
 let currentLead = null;
 
 const STATUS_BADGE = {
@@ -55,7 +56,6 @@ window.addEventListener('DOMContentLoaded', loadConversations);
 
 async function loadConversations() {
   const data = await api('GET', '/api/leads/?per_page=500&sort_by=updated_at&sort_dir=desc');
-  // Show all leads that have been contacted (any status except not_contacted)
   allLeads = data.leads.filter(l => l.status !== 'not_contacted');
   renderList();
 }
@@ -69,14 +69,16 @@ function setFilter(f, btn) {
   renderList();
 }
 
-function filterList() {
-  renderList();
-}
+function filterList() { renderList(); }
 
 function renderList() {
   const search = document.getElementById('convSearch').value.toLowerCase();
   let leads = allLeads;
-  if (currentFilter !== 'all') leads = leads.filter(l => l.status === currentFilter);
+  if (currentFilter === 'manual') {
+    leads = leads.filter(l => l.ai_paused);
+  } else if (currentFilter !== 'all') {
+    leads = leads.filter(l => l.status === currentFilter);
+  }
   if (search) leads = leads.filter(l =>
     (l.business_name||'').toLowerCase().includes(search) ||
     (l.phone||'').includes(search)
@@ -91,12 +93,15 @@ function renderList() {
   el.innerHTML = leads.map(l => `
     <div class="conv-item px-3 py-2 border-bottom cursor-pointer ${currentLead?.id === l.id ? 'bg-primary bg-opacity-10' : ''}"
          onclick="openThread(${l.id})" style="cursor:pointer;">
-      <div class="d-flex justify-content-between align-items-start">
-        <div class="fw-semibold text-truncate small" style="max-width:200px">${esc(l.business_name||'Unknown')}</div>
-        <span class="badge bg-${STATUS_BADGE[l.status]||'secondary'} ms-1" style="font-size:10px">${l.status.replace(/_/g,' ')}</span>
+      <div class="d-flex justify-content-between align-items-start gap-1">
+        <div class="fw-semibold text-truncate small" style="max-width:160px">${esc(l.business_name||'Unknown')}</div>
+        <div class="d-flex gap-1 flex-shrink-0">
+          ${l.ai_paused ? '<span class="badge bg-warning text-dark" style="font-size:9px">Manual</span>' : ''}
+          <span class="badge bg-${STATUS_BADGE[l.status]||'secondary'}" style="font-size:9px">${l.status.replace(/_/g,' ')}</span>
+        </div>
       </div>
       <div class="text-muted" style="font-size:11px">${l.phone||'No phone'} · ${l.city||''}</div>
-      <div class="text-muted text-truncate" style="font-size:11px; max-width:260px" id="preview-${l.id}">
+      <div class="text-muted text-truncate" style="font-size:11px; max-width:260px">
         ${l.last_contacted_at ? 'Last contact: ' + l.last_contacted_at.substring(0,10) : 'Not yet contacted'}
       </div>
     </div>`).join('');
@@ -106,38 +111,71 @@ async function openThread(leadId) {
   const data = await api('GET', `/api/leads/${leadId}`);
   const l = data.lead;
   currentLead = l;
-  renderList(); // re-render to highlight selected
+  renderList();
 
   const msgs = l.conversations || [];
   const panel = document.getElementById('threadPanel');
 
   panel.innerHTML = `
     <!-- Header -->
-    <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-white">
+    <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-white flex-shrink-0">
       <div>
         <div class="fw-semibold">${esc(l.business_name||'Unknown')}</div>
-        <div class="small text-muted">${l.phone||''} · ${l.city||''} · <span class="badge bg-${STATUS_BADGE[l.status]||'secondary'}">${l.status.replace(/_/g,' ')}</span></div>
+        <div class="small text-muted d-flex align-items-center gap-2 flex-wrap mt-1">
+          <span>${l.phone||''}</span>
+          <span class="badge bg-${STATUS_BADGE[l.status]||'secondary'}">${l.status.replace(/_/g,' ')}</span>
+          <span class="badge ${l.ai_paused ? 'bg-warning text-dark' : 'bg-success'}" id="aiStatusBadge">
+            ${l.ai_paused ? '<i class="bi bi-person-fill me-1"></i>Manual Mode' : '<i class="bi bi-robot me-1"></i>AI Active'}
+          </span>
+        </div>
       </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-xs ${l.ai_paused ? 'btn-success' : 'btn-warning'}" id="takeoverBtn"
+                onclick="${l.ai_paused ? `resumeAI(${l.id})` : `takeOver(${l.id})`}">
+          <i class="bi bi-${l.ai_paused ? 'robot' : 'person-fill'} me-1"></i>
+          ${l.ai_paused ? 'Resume AI' : 'Take Over'}
+        </button>
         <a href="/leads/${l.id}" class="btn btn-xs btn-outline-primary" target="_blank">
           <i class="bi bi-person"></i> Lead
         </a>
         ${l.google_maps_url ? `<a href="${l.google_maps_url}" class="btn btn-xs btn-outline-secondary" target="_blank"><i class="bi bi-map"></i></a>` : ''}
-        <button class="btn btn-xs btn-outline-danger" onclick="deleteConvo(${l.id})" title="Delete this lead & conversation">
-          <i class="bi bi-trash"></i> Delete
+        <button class="btn btn-xs btn-outline-danger" onclick="deleteConvo(${l.id})">
+          <i class="bi bi-trash"></i>
         </button>
       </div>
     </div>
 
+    <!-- Manual mode banner -->
+    ${l.ai_paused ? `
+    <div class="alert alert-warning py-2 px-3 mb-0 rounded-0 flex-shrink-0 small border-0 border-bottom border-warning">
+      <i class="bi bi-hand-index-thumb-fill me-1"></i>
+      <strong>Manual Mode</strong> — AI is paused. You're in control. Click <strong>Resume AI</strong> to hand back to the bot.
+    </div>` : ''}
+
     <!-- Messages -->
-    <div class="flex-grow-1 p-3 overflow-auto" id="msgThread" style="background:#f8f9fa; max-height:calc(100vh - 320px)">
+    <div class="p-3 overflow-auto" id="msgThread"
+         style="background:#f8f9fa; flex:1 1 0; min-height:0;">
       ${msgs.length ? msgs.map(m => renderMsg(m)).join('') : '<div class="text-center text-muted py-5">No messages yet</div>'}
     </div>
 
-    <!-- Status update bar -->
-    <div class="p-3 border-top bg-white">
+    <!-- Manual compose -->
+    <div class="p-2 border-top bg-white flex-shrink-0">
+      <div class="input-group">
+        <textarea class="form-control" id="manualMsg" rows="2"
+          placeholder="Type a manual message to send via GHL SMS..."
+          style="resize:none; font-size:13px;"
+          onkeydown="if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();sendManual(${l.id})}"></textarea>
+        <button class="btn btn-primary px-3" onclick="sendManual(${l.id})" title="Send (Ctrl+Enter)">
+          <i class="bi bi-send-fill"></i>
+        </button>
+      </div>
+      <div class="small text-muted mt-1">Ctrl+Enter to send · Sending pauses the AI automatically</div>
+    </div>
+
+    <!-- Status + notes bar -->
+    <div class="p-3 border-top bg-white flex-shrink-0">
       <div class="row g-2 align-items-center">
-        <div class="col-auto small text-muted">Update status:</div>
+        <div class="col-auto small text-muted">Status:</div>
         <div class="col-auto">
           <select class="form-select form-select-sm" id="threadStatus" onchange="updateStatus(${l.id})">
             ${['not_contacted','message_sent','replied','interested','not_interested','opted_out','website_sent','converted'].map(s =>
@@ -154,24 +192,58 @@ async function openThread(leadId) {
       </div>
     </div>`;
 
-  // Scroll to bottom
   setTimeout(() => {
     const t = document.getElementById('msgThread');
     if (t) t.scrollTop = t.scrollHeight;
-  }, 100);
+  }, 50);
 }
 
 function renderMsg(m) {
-  const isOut = m.direction === 'outbound';
-  const time  = m.created_at ? m.created_at.substring(0,16).replace('T',' ') : '';
+  const isOut    = m.direction === 'outbound';
+  const isManual = m.status === 'sent_manual';
+  const time     = m.created_at ? m.created_at.substring(0,16).replace('T',' ') : '';
+  const label    = isOut ? (isManual ? 'You (Manual)' : 'You (AI)') : 'Lead';
+  const bubble   = isOut
+    ? (isManual ? 'bg-success text-white' : 'bg-primary text-white')
+    : 'bg-white border shadow-sm';
   return `
     <div class="mb-3 d-flex ${isOut ? 'justify-content-end' : 'justify-content-start'}">
-      <div style="max-width:70%">
-        <div class="px-3 py-2 rounded-3 ${isOut ? 'bg-primary text-white' : 'bg-white border shadow-sm'}"
+      <div style="max-width:72%">
+        <div class="px-3 py-2 rounded-3 ${bubble}"
              style="font-size:.875rem; white-space:pre-wrap">${esc(m.message||'')}</div>
-        <div class="small text-muted mt-1 ${isOut?'text-end':''}">${isOut?'You (AI)':'Lead'} · ${time}</div>
+        <div class="small text-muted mt-1 ${isOut?'text-end':''}">${label} · ${time}</div>
       </div>
     </div>`;
+}
+
+async function takeOver(leadId) {
+  try {
+    await api('POST', `/api/leads/${leadId}/pause-ai`);
+    showToast('AI paused — you have taken over this conversation');
+    await openThread(leadId);
+    document.getElementById('manualMsg')?.focus();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function resumeAI(leadId) {
+  if (!confirm('Hand this conversation back to the AI? The bot will respond to future messages again.')) return;
+  try {
+    await api('POST', `/api/leads/${leadId}/resume-ai`);
+    showToast('AI resumed — bot will handle future replies');
+    await openThread(leadId);
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function sendManual(leadId) {
+  const el = document.getElementById('manualMsg');
+  const msg = el?.value.trim();
+  if (!msg) return;
+  try {
+    await api('POST', `/api/leads/${leadId}/send-manual-sms`, { message: msg });
+    el.value = '';
+    showToast('Sent via GHL · AI paused for this conversation');
+    await openThread(leadId);
+  } catch(e) { showToast(e.message, 'error'); }
 }
 
 async function deleteConvo(leadId) {

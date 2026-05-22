@@ -215,6 +215,7 @@ class Lead(db.Model):
     conversation_step = db.Column(db.Integer, default=0)
     followup_count = db.Column(db.Integer, default=0)
     last_followup_at = db.Column(db.DateTime)
+    ai_paused = db.Column(db.Boolean, default=False)
 
     website_url_sent = db.Column(db.String(500))
     website_sent_at = db.Column(db.DateTime)
@@ -275,6 +276,7 @@ class Lead(db.Model):
             "status_color": self.STATUS_COLORS.get(self.status, "secondary"),
             "conversation_step": self.conversation_step,
             "followup_count": self.followup_count,
+            "ai_paused": bool(self.ai_paused),
             "website_url_sent": self.website_url_sent,
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,

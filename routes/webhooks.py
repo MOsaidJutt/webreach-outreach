@@ -85,15 +85,21 @@ def ghl_webhook():
         step=lead.conversation_step, status="received", ghl_message_id=ghl_message_id,
     ))
 
+    if conversation_id:
+        lead.ghl_conversation_id = conversation_id
+    lead.updated_at = datetime.utcnow()
+
+    # If manual takeover is active, log inbound but do not reply
+    if lead.ai_paused:
+        db.session.commit()
+        logger.info(f"Lead {lead.id} is in manual mode — inbound logged, AI skipped")
+        return jsonify({"message": "Manual mode — message logged, AI skipped"}), 200
+
     conversation_history = [c.to_dict() for c in lead.conversations]
     reply_text, new_status, new_step = get_next_message(lead, inbound_text, conversation_history)
 
     lead.status = new_status
     lead.conversation_step = new_step
-    lead.updated_at = datetime.utcnow()
-    if conversation_id:
-        lead.ghl_conversation_id = conversation_id
-
     db.session.commit()
 
     if reply_text:

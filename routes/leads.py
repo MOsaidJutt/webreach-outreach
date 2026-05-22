@@ -439,6 +439,73 @@ def import_csv():
     })
 
 
+@leads_bp.route("/<int:lead_id>/pause-ai", methods=["POST"])
+@require_admin_password
+def pause_ai(lead_id):
+    lead = db.get_or_404(Lead, lead_id)
+    lead.ai_paused = True
+    lead.updated_at = datetime.utcnow()
+    db.session.commit()
+    if lead.ghl_contact_id:
+        try:
+            GHLService().add_tag(lead.ghl_contact_id, "manual-takeover")
+        except Exception:
+            pass
+    return jsonify({"message": "AI paused", "lead": lead.to_dict()})
+
+
+@leads_bp.route("/<int:lead_id>/resume-ai", methods=["POST"])
+@require_admin_password
+def resume_ai(lead_id):
+    lead = db.get_or_404(Lead, lead_id)
+    lead.ai_paused = False
+    lead.updated_at = datetime.utcnow()
+    db.session.commit()
+    if lead.ghl_contact_id:
+        try:
+            GHLService().remove_tag(lead.ghl_contact_id, "manual-takeover")
+        except Exception:
+            pass
+    return jsonify({"message": "AI resumed", "lead": lead.to_dict()})
+
+
+@leads_bp.route("/<int:lead_id>/send-manual-sms", methods=["POST"])
+@require_admin_password
+def send_manual_sms(lead_id):
+    lead = db.get_or_404(Lead, lead_id)
+    data = request.get_json() or {}
+    message = data.get("message", "").strip()
+    if not message:
+        return jsonify({"error": "Message is required"}), 400
+    if not lead.ghl_contact_id:
+        return jsonify({"error": "Lead not imported to GHL yet"}), 400
+
+    ghl = GHLService()
+    convo_id = lead.ghl_conversation_id
+    if not convo_id:
+        convo = ghl.get_or_create_conversation(lead.ghl_contact_id)
+        convo_id = convo.get("id") or convo.get("conversationId")
+        lead.ghl_conversation_id = convo_id
+
+    result = ghl.send_sms(lead.ghl_contact_id, message, convo_id)
+    lead.ai_paused = True
+    lead.updated_at = datetime.utcnow()
+
+    db.session.add(Conversation(
+        lead_id=lead.id, direction="outbound", message=message,
+        step=lead.conversation_step, status="sent_manual",
+        ghl_message_id=result.get("messageId", ""),
+    ))
+    db.session.commit()
+
+    try:
+        ghl.add_tag(lead.ghl_contact_id, "manual-takeover")
+    except Exception:
+        pass
+
+    return jsonify({"message": "SMS sent (AI paused)", "lead": lead.to_dict()})
+
+
 @leads_bp.route("/export", methods=["GET"])
 def export_leads():
     fmt         = request.args.get("format", "csv").lower()

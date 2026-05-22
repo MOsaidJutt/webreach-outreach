@@ -109,6 +109,10 @@ class GHLService:
         return self._request("POST", f"/contacts/{contact_id}/tags/",
                              json={"tags": [tag]})
 
+    def remove_tag(self, contact_id: str, tag: str) -> dict:
+        return self._request("DELETE", f"/contacts/{contact_id}/tags/",
+                             json={"tags": [tag]})
+
     # ------------------------------------------------------------------ #
     # Conversations & SMS
     # ------------------------------------------------------------------ #

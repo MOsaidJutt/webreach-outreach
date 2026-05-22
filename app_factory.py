@@ -36,6 +36,18 @@ def create_app(config_object=None):
 
         db.create_all()
 
+        # Safe column additions (idempotent — ignored if column already exists)
+        from sqlalchemy import text
+        with db.engine.connect() as _conn:
+            for _stmt in [
+                "ALTER TABLE leads ADD COLUMN ai_paused BOOLEAN DEFAULT 0",
+            ]:
+                try:
+                    _conn.execute(text(_stmt))
+                    _conn.commit()
+                except Exception:
+                    pass
+
         # Seed default settings if not already present
         from models import AppSettings
         for key, val in AppSettings.DEFAULTS.items():
