@@ -163,13 +163,15 @@ def _send_one(app):
             logger.info(f"Smart sender: daily limit reached ({sent_today}/{today_limit})")
             return
 
-        # Pick next eligible lead
+        # Pick next eligible lead — skip any contacted in last 24h (duplicate guard)
+        cutoff_24h = datetime.utcnow() - timedelta(hours=24)
         lead = db.session.execute(
             select(Lead).where(
                 Lead.imported_to_ghl == True,
                 Lead.status == "not_contacted",
                 Lead.ghl_contact_id.isnot(None),
                 Lead.phone.isnot(None),
+                (Lead.last_contacted_at.is_(None)) | (Lead.last_contacted_at < cutoff_24h),
             ).limit(1)
         ).scalar_one_or_none()
 
@@ -178,18 +180,20 @@ def _send_one(app):
             return
 
         try:
-            ghl     = GHLService()
-            message = get_initial_message(lead)
-            convo   = ghl.get_or_create_conversation(lead.ghl_contact_id)
-            convo_id = convo.get("id") or convo.get("conversationId")
-            result  = ghl.send_sms(lead.ghl_contact_id, message, convo_id)
-
-            lead.ghl_conversation_id = convo_id
+            # Mark as contacted immediately before GHL call to prevent duplicate sends on crash
+            lead.last_contacted_at = datetime.utcnow()
             lead.status = "message_sent"
             lead.conversation_step = 0
-            lead.last_contacted_at = datetime.utcnow()
             lead.updated_at = datetime.utcnow()
+            db.session.commit()
 
+            ghl      = GHLService()
+            message  = get_initial_message(lead)
+            convo    = ghl.get_or_create_conversation(lead.ghl_contact_id)
+            convo_id = convo.get("id") or convo.get("conversationId")
+            result   = ghl.send_sms(lead.ghl_contact_id, message, convo_id)
+
+            lead.ghl_conversation_id = convo_id
             db.session.add(Conversation(
                 lead_id=lead.id, direction="outbound", message=message,
                 step=0, status="sent", ghl_message_id=result.get("messageId", ""),
@@ -198,6 +202,7 @@ def _send_one(app):
             logger.info(f"Smart sender: sent to '{lead.business_name}' ({sent_today + 1}/{today_limit})")
 
         except Exception as e:
+            db.session.rollback()
             logger.error(f"Smart sender: failed for lead {lead.id}: {e}")
 
 

@@ -250,8 +250,16 @@ def send_initial_sms(lead_id):
 @require_admin_password
 def send_bulk_sms():
     from models import AppSettings
-    from datetime import datetime
+    from datetime import datetime, timedelta
     from sqlalchemy import func as sqlfunc
+
+    # Block manual bulk send when smart sender is active — it handles timing
+    if AppSettings.get("smart_send_enabled", "false").lower() == "true":
+        return jsonify({
+            "message": "Smart Send is active — it will send messages automatically at the right intervals. "
+                       "Turn off Smart Send first if you want to send manually.",
+            "results": {"sent": 0, "failed": 0, "errors": []}
+        }), 200
 
     # Check daily limit
     daily_limit = int(AppSettings.get("daily_send_limit", "50"))
@@ -267,10 +275,14 @@ def send_bulk_sms():
     if remaining == 0:
         return jsonify({"message": f"Daily limit of {daily_limit} messages reached. Try again tomorrow.", "results": {"sent": 0, "failed": 0, "errors": []}}), 200
 
+    # Duplicate guard: skip any lead contacted in the last 24 hours
+    cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+
     stmt = select(Lead).where(
         Lead.status == "not_contacted",
         Lead.imported_to_ghl == True,
         Lead.ghl_contact_id.isnot(None),
+        or_(Lead.last_contacted_at.is_(None), Lead.last_contacted_at < cutoff_24h),
     ).limit(remaining)
     leads = db.session.execute(stmt).scalars().all()
 
@@ -294,12 +306,13 @@ def send_bulk_sms():
                 lead_id=lead.id, direction="outbound", message=message,
                 step=0, status="sent", ghl_message_id=result.get("messageId", ""),
             ))
+            # Commit per-lead so a crash mid-batch doesn't cause duplicate sends
+            db.session.commit()
             results["sent"] += 1
         except Exception as e:
+            db.session.rollback()
             results["failed"] += 1
             results["errors"].append(f"Lead {lead.id} ({lead.business_name}): {str(e)}")
-
-    db.session.commit()
     return jsonify({"message": "Bulk SMS complete", "results": results})
 
 

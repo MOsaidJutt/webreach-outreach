@@ -300,10 +300,16 @@ async function importAllToGHL() {
 }
 
 async function sendBulkSMS() {
-  if (!confirm("Send initial SMS to all GHL-imported leads that haven't been contacted yet?")) return;
+  // Check smart send status first
+  const status = await api("GET", "/api/admin/smart-send/status").catch(() => null);
+  if (status && status.enabled) {
+    showToast("Smart Send is active — it handles sending automatically with proper intervals. Disable Smart Send first to use manual batch.", "error");
+    return;
+  }
+  if (!confirm("Send initial SMS to all GHL-imported leads that haven't been contacted yet?\n\nNote: this sends immediately without intervals. Use Smart Send for proper warm-up.")) return;
   try {
     const data = await api("POST", "/api/leads/send-bulk-sms");
-    showToast(`Sent ${data.results.sent} messages (${data.results.failed} failed)`);
+    showToast(data.message || `Sent ${data.results.sent} messages (${data.results.failed} failed)`);
     loadDashboard();
   } catch (e) {
     showToast(e.message, "error");
