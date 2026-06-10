@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Outreach — Ultimate Admin &amp; Owner Guide</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 14px; line-height: 1.6; }
+
+  /* Cover */
+  .cover { background: linear-gradient(135deg, #0f3460, #16213e); color: #fff; padding: 70px 60px; min-height: 280px; display: flex; flex-direction: column; justify-content: center; }
+  .cover h1 { font-size: 38px; font-weight: 700; margin-bottom: 8px; }
+  .cover p { font-size: 16px; opacity: .8; margin-bottom: 6px; }
+  .cover .url { font-size: 14px; background: rgba(255,255,255,.15); display: inline-block; padding: 6px 16px; border-radius: 20px; margin-top: 16px; }
+  .cover .meta { font-size: 12px; opacity: .55; margin-top: 18px; }
+
+  /* Content */
+  .content { max-width: 920px; margin: 0 auto; padding: 40px 40px 60px; }
+
+  h2 { font-size: 21px; font-weight: 700; color: #0f3460; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #e8f0fe; display: flex; align-items: center; gap: 10px; scroll-margin-top: 16px; }
+  h3 { font-size: 15px; font-weight: 600; color: #333; margin: 22px 0 8px; }
+  h4 { font-size: 13.5px; font-weight: 600; color: #0f3460; margin: 14px 0 6px; }
+  p { margin-bottom: 10px; color: #444; }
+
+  /* Steps */
+  .step-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
+  .step-card { background: #f8faff; border: 1px solid #dce8ff; border-radius: 10px; padding: 16px; text-align: center; }
+  .step-card .num { width: 36px; height: 36px; background: #0f3460; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; margin: 0 auto 10px; font-size: 16px; }
+  .step-card h4 { font-size: 13px; font-weight: 600; color: #0f3460; margin-bottom: 4px; }
+  .step-card p { font-size: 12px; color: #666; margin: 0; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12.5px; }
+  th { background: #0f3460; color: #fff; padding: 9px 12px; text-align: left; font-weight: 600; }
+  td { padding: 8px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8faff; }
+  td code, p code { background: #eef2fb; color: #0f3460; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+  /* Numbered list */
+  ol, ul { padding-left: 22px; margin: 10px 0; }
+  ol li, ul li { margin-bottom: 6px; color: #444; }
+  ol li strong, ul li strong { color: #0f3460; }
+
+  /* Alert boxes */
+  .tip { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 13px; }
+  .note { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 13px; }
+  .warn { background: #fff8e1; border-left: 4px solid #ffc107; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 13px; }
+  .danger { background: #fdecea; border-left: 4px solid #e53935; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 13px; }
+
+  /* Status badges */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge.grey { background: #eee; color: #555; }
+  .badge.blue { background: #e3f2fd; color: #1565c0; }
+  .badge.cyan { background: #e0f7fa; color: #00695c; }
+  .badge.yellow { background: #fff8e1; color: #e65100; }
+  .badge.green { background: #e8f5e9; color: #2e7d32; }
+  .badge.red { background: #fce4ec; color: #c62828; }
+  .badge.dark { background: #263238; color: #fff; }
+
+  /* Chat preview */
+  .chat { background: #f5f5f5; border-radius: 12px; padding: 20px; margin: 16px 0; }
+  .msg { margin-bottom: 12px; display: flex; }
+  .msg.bot { justify-content: flex-start; }
+  .msg.user { justify-content: flex-end; }
+  .msg.manual .bubble { background: #2e7d32 !important; }
+  .bubble { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+  .msg.bot .bubble { background: #fff; border: 1px solid #ddd; color: #333; border-radius: 4px 12px 12px 12px; }
+  .msg.user .bubble { background: #0f3460; color: #fff; border-radius: 12px 4px 12px 12px; }
+  .label { font-size: 11px; color: #999; margin-top: 4px; }
+  .msg.bot .label { text-align: left; }
+  .msg.user .label { text-align: right; }
+
+  /* URL / credential boxes */
+  .url-box { background: #0f3460; color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; text-align: center; margin: 16px 0; letter-spacing: .5px; }
+  .cred-box { display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #16213e; color: #fff; padding: 16px 22px; border-radius: 10px; margin: 14px 0; flex-wrap: wrap; }
+  .cred-box .cb-label { font-size: 12px; opacity: .65; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .cred-box .cb-value { font-size: 20px; font-weight: 700; font-family: 'Consolas', monospace; letter-spacing: 1px; }
+  .cred-box.small .cb-value { font-size: 15px; }
+
+  /* Table of contents */
+  .toc { background: #f8faff; border: 1px solid #dce8ff; border-radius: 10px; padding: 18px 24px; margin: 16px 0; columns: 2; column-gap: 30px; }
+  .toc a { color: #0f3460; text-decoration: none; font-size: 13px; display: block; margin-bottom: 6px; break-inside: avoid; }
+  .toc a:hover { text-decoration: underline; }
+  .toc .toc-h { font-weight: 700; color: #0f3460; margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* Icon legend */
+  .icon-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .icon-row .ic { font-size: 18px; width: 28px; text-align: center; }
+
+  kbd { background: #eee; border: 1px solid #ccc; border-radius: 4px; padding: 1px 6px; font-size: 11px; font-family: monospace; box-shadow: 0 1px 0 rgba(0,0,0,.1); }
+
+  /* Page break for print */
+  .page-break { page-break-before: always; }
+  .confidential { display: inline-block; background: #e53935; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
+
+  @media print {
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .step-card .num { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .url-box, .cred-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .toc { columns: 2; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <h1>Outreach</h1>
+  <p>Automated Website Outreach System</p>
+  <p>Ultimate Admin &amp; Owner Guide — Logins, Pages, Settings &amp; Workflows</p>
+  <div class="url">🌐 outreach.sms2cartdemo.com</div>
+  <div class="meta">Document version: June 2026</div>
+</div>
+
+<div class="content">
+
+  <!-- TOC -->
+  <h2>📖 What's in This Guide</h2>
+  <p>This is the complete reference for running Outreach. Print it to PDF (Ctrl+P → Save as PDF) or keep it open in a browser tab — every section header below is a clickable jump link.</p>
+  <div class="toc">
+    <div class="toc-h">Getting Started</div>
+    <a href="#access">🔑 Login &amp; Admin Password</a>
+    <a href="#overview">🧭 How Outreach Works</a>
+    <a href="#navigation">🗂️ Sidebar Navigation Map</a>
+
+    <div class="toc-h">Page-by-Page Guide</div>
+    <a href="#dashboard">📊 Dashboard</a>
+    <a href="#leads">👥 Leads</a>
+    <a href="#lead-detail">🪪 Lead Detail Page</a>
+    <a href="#conversations">💬 Conversations &amp; Manual Takeover</a>
+    <a href="#scraping">🔍 Scraping Jobs</a>
+    <a href="#ai-chat">🤖 AI Chat Test</a>
+    <a href="#ai-settings">🧠 AI Settings (Control Centre)</a>
+    <a href="#admin">⚙️ Admin</a>
+    <a href="#settings">🔧 Settings</a>
+
+    <div class="toc-h">Reference</div>
+    <a href="#pipeline">📌 Pipeline Status Guide</a>
+    <a href="#workflows">✅ Common Workflows</a>
+    <a href="#glossary">📘 Glossary</a>
+    <a href="#faq">❓ FAQ</a>
+    <a href="#troubleshooting">🛠️ Troubleshooting</a>
+    <a href="#credentials">🔐 System Credentials &amp; API Keys</a>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ACCESS / LOGIN -->
+  <!-- ============================================================ -->
+  <h2 id="access">🔑 Login &amp; Admin Password</h2>
+
+  <h3>Dashboard Address</h3>
+  <div class="url-box">https://outreach.sms2cartdemo.com</div>
+  <p>Open this link in any browser (desktop, tablet, or phone). The dashboard loads immediately — <strong>no username or login screen</strong> to view data.</p>
+
+  <h3>Admin Password — required for any change</h3>
+  <p>Every action that <strong>changes</strong> something (sending SMS, importing leads, editing settings, deleting a lead, taking over a conversation, etc.) is protected by a single shared admin password. Viewing pages, lists, and reports never requires it.</p>
+  <div class="cred-box">
+    <div>
+      <div class="cb-label">Outreach Admin Password</div>
+      <div class="cb-value">Lulah007!</div>
+    </div>
+    <div style="font-size:28px;">🔒</div>
+  </div>
+
+  <h3>How the password prompt works</h3>
+  <ol>
+    <li>Click any button that saves, sends, imports, or deletes something.</li>
+    <li>A small popup titled <strong>"Admin Password Required"</strong> appears.</li>
+    <li>Type the password above and click <strong>Unlock</strong> (or press Enter).</li>
+    <li>Outreach remembers the password for the rest of your browser session — you won't be asked again until you close the browser tab/window.</li>
+    <li>If you ever see <em>"Incorrect password — try again"</em>, just retype it carefully (it's case-sensitive, including the exclamation mark).</li>
+  </ol>
+
+  <div class="warn">
+    <strong>⚠️ Keep this password private.</strong> Anyone with it can send SMS to your leads, delete data, change AI behaviour, and edit business settings. Only share it with people you trust to manage the system. If it's ever compromised, ask your developer to change <code>ADMIN_PASSWORD</code> in the server's <code>.env</code> file and restart the app.
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- OVERVIEW -->
+  <!-- ============================================================ -->
+  <h2 id="overview">🧭 How Outreach Works</h2>
+  <p>Outreach finds local businesses on Google Maps that have great reviews but <strong>no website</strong>, then contacts them via SMS using an AI agent. When a business shows interest, you're notified to create their website and send them the link.</p>
+
+  <div class="step-grid">
+    <div class="step-card">
+      <div class="num">1</div>
+      <h4>Scrape</h4>
+      <p>Find businesses on Google Maps with no website</p>
+    </div>
+    <div class="step-card">
+      <div class="num">2</div>
+      <h4>Contact</h4>
+      <p>AI agent sends and manages SMS conversations</p>
+    </div>
+    <div class="step-card">
+      <div class="num">3</div>
+      <h4>Convert</h4>
+      <p>Flag interested leads and send them their website</p>
+    </div>
+  </div>
+
+  <h3>How SMS sending works behind the scenes</h3>
+  <p>You <strong>never need to open GHL (Go High Level)</strong> to send messages — everything is controlled from Outreach.</p>
+
+  <div style="background:#f8faff; border:1px solid #dce8ff; border-radius:10px; padding:20px; margin:16px 0;">
+    <div style="display:flex; align-items:center; gap:0; flex-wrap:wrap;">
+      <div style="text-align:center; padding:12px 16px; background:#0f3460; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Outreach<br>Dashboard</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">→</div>
+      <div style="text-align:center; padding:12px 16px; background:#1565c0; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">GHL API<br>(background)</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">→</div>
+      <div style="text-align:center; padding:12px 16px; background:#6a1b9a; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Twilio<br>(delivery)</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">→</div>
+      <div style="text-align:center; padding:12px 16px; background:#2e7d32; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Business<br>Phone</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:0; flex-wrap:wrap; margin-top:8px;">
+      <div style="text-align:center; padding:12px 16px; background:#0f3460; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Outreach<br>AI processes</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">←</div>
+      <div style="text-align:center; padding:12px 16px; background:#1565c0; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">GHL<br>webhook</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">←</div>
+      <div style="text-align:center; padding:12px 16px; background:#6a1b9a; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Twilio<br>receives</div>
+      <div style="padding:0 8px; color:#999; font-size:18px;">←</div>
+      <div style="text-align:center; padding:12px 16px; background:#2e7d32; color:#fff; border-radius:8px; font-size:12px; font-weight:600;">Business<br>replies</div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Question</th><th>Answer</th></tr>
+    <tr><td>Where do I send SMS from?</td><td><strong>Outreach dashboard only</strong> — Quick Actions, bulk buttons, or the ✉️ icon on a lead</td></tr>
+    <tr><td>Do I need to open GHL?</td><td><strong>No</strong> — GHL works automatically in the background</td></tr>
+    <tr><td>Where do replies appear?</td><td>Outreach → <strong>Conversations</strong> page (also visible in GHL if you ever log in there)</td></tr>
+    <tr><td>What number do SMS come from?</td><td>Your Twilio number connected to GHL — <strong>+1 (839) 257-5482</strong></td></tr>
+    <tr><td>When do I use GHL manually?</td><td>Only if you want to look at GHL's own contact records — not required for day-to-day use</td></tr>
+  </table>
+
+  <!-- ============================================================ -->
+  <!-- NAVIGATION MAP -->
+  <!-- ============================================================ -->
+  <h2 id="navigation">🗂️ Sidebar Navigation Map</h2>
+  <p>The left sidebar has 8 links. Here's what each one is for at a glance:</p>
+  <table>
+    <tr><th>Sidebar Item</th><th>Page Address</th><th>What it's for</th></tr>
+    <tr><td>📊 Dashboard</td><td><code>/</code></td><td>Big-picture metrics, charts, and one-click actions</td></tr>
+    <tr><td>👥 Leads</td><td><code>/leads</code></td><td>Full list of every business you've found — filter, search, manage</td></tr>
+    <tr><td>💬 Conversations</td><td><code>/conversations</code></td><td>Live SMS inbox — read replies, take over from the AI, send messages yourself</td></tr>
+    <tr><td>🔍 Scraping Jobs</td><td><code>/scraping</code></td><td>Find new businesses on Google Maps (CSV import or live search)</td></tr>
+    <tr><td>🤖 AI Chat Test</td><td><code>/ai-chat</code></td><td>Test how the AI talks to leads — 100% simulated, no real SMS</td></tr>
+    <tr><td>🧠 AI Settings</td><td><code>/conversation-settings</code></td><td>Control centre — edit everything the AI says and how it thinks</td></tr>
+    <tr><td>⚙️ Admin</td><td><code>/admin</code></td><td>Daily limits, follow-ups, business identity, Smart Send, logs &amp; tools</td></tr>
+    <tr><td>🔧 Settings</td><td><code>/settings</code></td><td>API key/connection reference for your developer</td></tr>
+  </table>
+  <p>Two buttons appear at the top-right of <strong>every</strong> page: <strong>Export CSV</strong> and <strong>Export Excel</strong> — these always download your full lead list.</p>
+
+  <!-- ============================================================ -->
+  <!-- DASHBOARD -->
+  <!-- ============================================================ -->
+  <h2 id="dashboard" class="page-break">📊 Dashboard</h2>
+  <p>The home page (<code>/</code>) — your at-a-glance command centre. Everything here is read-only except the Quick Actions card.</p>
+
+  <h3>Top metric cards</h3>
+  <table>
+    <tr><th>Card</th><th>What it shows</th></tr>
+    <tr><td><strong>Total Businesses</strong></td><td>Every lead ever scraped or imported into Outreach</td></tr>
+    <tr><td><strong>Messages Sent</strong></td><td>Leads who have received at least the opening SMS</td></tr>
+    <tr><td><strong>Interested Leads</strong></td><td>Leads who replied "yes" to the free website offer</td></tr>
+    <tr><td><strong>Converted</strong></td><td>Leads marked as <span class="badge green">Converted</span> — paying customers</td></tr>
+    <tr><td><strong>Response Rate</strong></td><td>% of messaged leads who replied at all</td></tr>
+    <tr><td><strong>Interest Rate</strong></td><td>% of replies that were positive ("yes")</td></tr>
+    <tr><td><strong>Conversion Rate</strong></td><td>% of interested leads who became paying customers</td></tr>
+  </table>
+
+  <h3>Charts</h3>
+  <table>
+    <tr><th>Chart</th><th>What it shows</th></tr>
+    <tr><td><strong>Lead Pipeline</strong> (bar chart)</td><td>How many leads currently sit in each pipeline stage (Not Contacted → Converted)</td></tr>
+    <tr><td><strong>Top Business Categories</strong></td><td>The 10 most common business types in your scraped data, with counts</td></tr>
+    <tr><td><strong>SMS Activity (Last 30 Days)</strong></td><td>Daily count of outbound messages — useful for spotting Smart Send activity or quiet days</td></tr>
+  </table>
+
+  <h3>Quick Actions card</h3>
+  <table>
+    <tr><th>Button</th><th>What happens when you click it</th></tr>
+    <tr><td>🔍 <strong>Start New Scrape</strong></td><td>Jumps to the Scraping Jobs page to find new businesses</td></tr>
+    <tr><td>☁️ <strong>Import All to GHL</strong></td><td>Asks for confirmation, then sends every <em>not-yet-imported</em> lead into Go High Level as a contact. Reports how many succeeded/failed</td></tr>
+    <tr><td>✉️ <strong>Send Bulk SMS</strong></td><td>Sends the opening message to every GHL-imported lead that hasn't been contacted yet. <strong>Blocked while Smart Send is ON</strong> (see <a href="#admin">Admin → Smart Send</a>) to avoid double-sending</td></tr>
+    <tr><td>⭐ <strong>View Interested Leads</strong></td><td>Jumps to the Leads page, pre-filtered to status = Interested</td></tr>
+    <tr><td>⬇️ <strong>Export All Leads (CSV)</strong></td><td>Downloads a CSV of every lead in the system</td></tr>
+  </table>
+
+  <h3>Recent Scraping Jobs table</h3>
+  <p>Shows your last 5 scraping jobs — query, location, minimum rating, results found/imported, status, and date. Click <strong>Scraping Jobs</strong> in the sidebar to see the full history.</p>
+
+  <!-- ============================================================ -->
+  <!-- LEADS -->
+  <!-- ============================================================ -->
+  <h2 id="leads" class="page-break">👥 Leads</h2>
+  <p>The Leads page (<code>/leads</code>) is where you manage every business in your database — filter your target list, import to GHL, send SMS, and update statuses.</p>
+
+  <h3>Filters &amp; search bar</h3>
+  <table>
+    <tr><th>Filter</th><th>Options</th><th>Use it to…</th></tr>
+    <tr><td>🔎 Search</td><td>free text</td><td>Find a lead by business name, phone, or city</td></tr>
+    <tr><td>Status</td><td>All 8 pipeline statuses</td><td>Narrow to one stage, e.g. only "Interested"</td></tr>
+    <tr><td>☁️ GHL</td><td>All / In GHL / Not in GHL</td><td>Find leads not yet imported to GHL</td></tr>
+    <tr><td>📱 Phone</td><td>Any / Has Phone / No Phone</td><td>Exclude leads you can't text</td></tr>
+    <tr><td>🌐 Website</td><td>Any / No Website / Has Website</td><td>Confirm you're only targeting "no website" businesses</td></tr>
+    <tr><td>⭐ Rating</td><td>Any / 3.0+ / 4.0+ / 4.5+ / 5.0</td><td>Focus on higher-rated businesses (better prospects)</td></tr>
+    <tr><td>Sort</td><td>Date Added / Rating ↓ / Reviews ↓ / Name A–Z</td><td>Reorder the list</td></tr>
+  </table>
+  <p>Click <strong>Apply</strong> to refresh with your filters, or <strong>Clear</strong> to reset everything. Active filters appear as small pills under the bar, and the total matching count shows on the right.</p>
+
+  <div class="tip">
+    <strong>💡 Recommended outreach filter:</strong> Phone = <strong>Has Phone</strong>, Website = <strong>No Website</strong>, Rating = <strong>4.0+</strong>. This is your ideal target list.
+  </div>
+
+  <h3>Selecting leads &amp; bulk actions</h3>
+  <p>Tick the checkbox at the top of the table to select everything on the current page (50 per page). If more than 50 leads match your filter, a banner appears letting you <strong>"Select all X leads"</strong> across every page — or <strong>Clear</strong> the selection.</p>
+  <table>
+    <tr><th>Bulk Action</th><th>What happens</th></tr>
+    <tr><td>☁️ <strong>Import Selected to GHL</strong></td><td>Adds every checked lead to GHL as a contact</td></tr>
+    <tr><td>✉️ <strong>Send SMS to Selected</strong></td><td>Sends the opening SMS to each checked lead, one by one</td></tr>
+    <tr><td>🗑️ <strong>Delete Selected</strong></td><td>Permanently removes the checked leads <em>and</em> their entire conversation history (asks for confirmation)</td></tr>
+    <tr><td>⬇️ <strong>Export ▾</strong> → CSV / Excel</td><td>Downloads only the leads matching your <em>current filters</em> (not the whole database)</td></tr>
+  </table>
+
+  <h3>The leads table</h3>
+  <p>Each row shows: Business name (with a 📍 link to Google Maps and a ⭐ link to Google Reviews), Rating + review count, Phone, Category, City, pipeline Status badge, GHL import indicator, and per-row action icons.</p>
+  <h4>Per-row action icons</h4>
+  <div class="icon-row"><span class="ic">✏️</span> <strong>Edit (pencil)</strong> — opens the Status Update popup (change status, add notes, record a website link)</div>
+  <div class="icon-row"><span class="ic">☁️</span> <strong>Import to GHL</strong> — only shown if not yet imported; adds this one lead to GHL</div>
+  <div class="icon-row"><span class="ic">✉️</span> <strong>Send SMS</strong> — only shown once imported &amp; status is "Not Contacted"; sends the opening message</div>
+  <div class="icon-row"><span class="ic">🗑️</span> <strong>Delete</strong> — permanently removes this lead (asks for confirmation)</div>
+  <div class="icon-row"><span class="ic">✅</span> <strong>GHL column — green check</strong> — already imported to GHL</div>
+  <div class="icon-row"><span class="ic">➖</span> <strong>GHL column — grey dash</strong> — not imported yet</div>
+
+  <h3>Status Update popup</h3>
+  <p>Opened via the ✏️ pencil icon (or from Lead Detail / Conversations pages). Lets you:</p>
+  <ul>
+    <li>Change the pipeline <strong>Status</strong> (dropdown of all 8 statuses)</li>
+    <li>If you set status to <strong>Website Sent</strong>, a <strong>Website URL</strong> field appears — paste the Lovable link here</li>
+    <li>Add free-text <strong>Notes</strong> (e.g. "Spoke to owner Tuesday, callback Friday")</li>
+  </ul>
+  <p>Click <strong>Save</strong> to apply (admin password required the first time each session).</p>
+
+  <h3>Pagination</h3>
+  <p>50 leads per page. Use the page numbers / arrows at the bottom of the table to move through the list — "Page X of Y (Z total)" shows your position.</p>
+
+  <!-- ============================================================ -->
+  <!-- LEAD DETAIL -->
+  <!-- ============================================================ -->
+  <h2 id="lead-detail" class="page-break">🪪 Lead Detail Page</h2>
+  <p>Click any business name in the Leads table to open its detail page (<code>/leads/&lt;id&gt;</code>) — a one-stop view of everything known about that lead.</p>
+
+  <h3>Business Info card</h3>
+  <p>Business name, rating, phone (clickable to call), category, address, a link to view on Google Maps, and a link to view Google Reviews.</p>
+
+  <h3>Pipeline Status card</h3>
+  <ul>
+    <li>Large status badge showing the current stage (e.g. "Interested ⭐")</li>
+    <li>Current <strong>Conversation Step</strong> (how far the AI has gotten — Step 0 to 3)</li>
+    <li><strong>Update Status</strong> dropdown — same 8 statuses as the Leads page</li>
+    <li><strong>Website URL Sent</strong> field — appears when status = Website Sent</li>
+    <li><strong>Notes</strong> textarea</li>
+    <li><strong>Save Changes</strong> button</li>
+  </ul>
+
+  <h3>GHL Integration card</h3>
+  <p>Shows whether this lead is imported to GHL and its Contact ID. If not imported yet, an <strong>Import to GHL</strong> button appears. If imported and never messaged, a <strong>Send Initial SMS</strong> button appears.</p>
+
+  <h3>SMS Conversation card</h3>
+  <p>The full message history with this lead — your messages on the right (blue), their replies on the left (grey), each with a timestamp. If nothing has been sent yet, it shows "No messages yet".</p>
+
+  <!-- ============================================================ -->
+  <!-- CONVERSATIONS -->
+  <!-- ============================================================ -->
+  <h2 id="conversations" class="page-break">💬 Conversations &amp; Manual Takeover</h2>
+  <p>The Conversations page (<code>/conversations</code>) is your live SMS inbox. It's a two-panel view: a list of conversations on the left, and the open message thread on the right. <strong>This is also where you can personally take over a conversation from the AI.</strong></p>
+
+  <h3>Left panel — conversation list</h3>
+  <ul>
+    <li><strong>Search box</strong> — filter the list by name, phone, or city as you type</li>
+    <li><strong>Filter pills:</strong>
+      <table>
+        <tr><th>Pill</th><th>Shows</th></tr>
+        <tr><td><strong>All</strong></td><td>Every lead that's been contacted at least once</td></tr>
+        <tr><td><strong>Replied</strong></td><td>Leads currently mid-conversation</td></tr>
+        <tr><td><strong>Interested</strong></td><td>Leads who said yes to the website offer</td></tr>
+        <tr><td><strong>Not Interested</strong></td><td>Leads who declined</td></tr>
+        <tr><td><strong>Manual Mode</strong></td><td>Conversations <em>you</em> are currently handling personally (AI paused) — see below</td></tr>
+      </table>
+    </li>
+    <li>Each list item shows the business name, a <span class="badge yellow">🟡 Manual</span> badge if you've taken it over, the regular status badge, phone + city, and the date of last contact.</li>
+  </ul>
+
+  <h3>Right panel — message thread</h3>
+  <p>Click any conversation to open it. The header shows the lead's name, phone, status badge, and an <strong>AI Status badge</strong>:</p>
+  <table>
+    <tr><th>Badge</th><th>Meaning</th></tr>
+    <tr><td><span class="badge green">🤖 AI Active</span></td><td>The bot is handling this conversation automatically — it will reply to the lead's next message by itself</td></tr>
+    <tr><td><span class="badge yellow">🟡 Manual Mode</span></td><td>The AI is <strong>paused</strong> for this lead — you're in control. The bot will <em>not</em> reply, even if the lead texts back</td></tr>
+  </table>
+
+  <h4>Action buttons in the thread header</h4>
+  <table>
+    <tr><th>Button</th><th>What it does</th></tr>
+    <tr><td>🟡 <strong>Take Over</strong> (shown when AI Active)</td><td>Pauses the AI for this lead and switches to Manual Mode. Use this before you reply personally — e.g. answering a tricky question, negotiating, or any time you don't want the bot to chime in</td></tr>
+    <tr><td>🤖 <strong>Resume AI</strong> (shown when in Manual Mode)</td><td>Hands the conversation back to the bot (asks for confirmation first). The AI will respond to the lead's <em>next</em> message automatically again</td></tr>
+    <tr><td>👤 <strong>Lead</strong></td><td>Opens this lead's full detail page in a new tab</td></tr>
+    <tr><td>🗺️ <strong>Maps</strong></td><td>Opens the business's Google Maps listing (if available)</td></tr>
+    <tr><td>🗑️ <strong>Delete</strong></td><td>Permanently deletes this lead and its entire conversation history (asks for confirmation — cannot be undone)</td></tr>
+  </table>
+
+  <div class="warn">
+    <strong>🖐️ When a conversation is in Manual Mode</strong>, a yellow banner appears: <em>"Manual Mode — AI is paused. You're in control. Click Resume AI to hand back to the bot."</em> Incoming texts from the lead are still recorded and visible in the thread — the AI simply won't answer them until you click <strong>Resume AI</strong>.
+  </div>
+
+  <h3>Sending a message yourself</h3>
+  <p>At the bottom of the thread is a text box: <em>"Type a manual message to send via GHL SMS..."</em></p>
+  <ul>
+    <li>Type your message and click <strong>Send</strong> (paper-plane icon), or press <kbd>Ctrl</kbd>+<kbd>Enter</kbd></li>
+    <li>The message is sent immediately via GHL/Twilio to the lead's phone</li>
+    <li><strong>Sending a manual message automatically switches this conversation to Manual Mode</strong> — even if you didn't click "Take Over" first. This guarantees the AI never talks over you.</li>
+    <li>Your manual messages appear in the thread in <strong>green</strong>, labelled "You (Manual)" — AI messages appear in blue, labelled "You (AI)" — and the lead's replies appear on the left, labelled "Lead"</li>
+  </ul>
+
+  <div class="tip">
+    <strong>💡 Workflow tip:</strong> Use the <strong>Manual Mode</strong> filter pill regularly to make sure you don't forget any conversation you've personally taken over. When you're done, click <strong>Resume AI</strong> so the bot keeps the conversation moving.
+  </div>
+
+  <h3>Status &amp; notes bar</h3>
+  <p>At the very bottom of the thread you can change the lead's <strong>Status</strong> (saves immediately) and add/edit a quick <strong>Note</strong> (click Save).</p>
+
+  <!-- ============================================================ -->
+  <!-- SCRAPING -->
+  <!-- ============================================================ -->
+  <h2 id="scraping" class="page-break">🔍 Scraping Jobs</h2>
+  <p>The Scraping Jobs page (<code>/scraping</code>) is how you find new businesses on Google Maps. It has two tabs.</p>
+
+  <h3>Tab 1 — Import from Outscraper CSV <span class="badge green">Recommended</span></h3>
+  <p>This is the default, recommended tab — Outscraper's own "no website" filter is far more accurate than filtering after the fact.</p>
+  <h4>Steps</h4>
+  <ol>
+    <li>Go to <strong>app.outscraper.com</strong> and log in</li>
+    <li>Click <strong>Google Maps</strong> search</li>
+    <li>Enter your search query and location (e.g. <em>"restaurants in Bristol UK"</em>)</li>
+    <li>Under <strong>Filters</strong>, set:
+      <ul>
+        <li>Has website → <strong>No</strong></li>
+        <li>Rating → <strong>≥ 4.0</strong></li>
+        <li>Has phone → <strong>Yes</strong></li>
+      </ul>
+    </li>
+    <li>Run the search and wait for results</li>
+    <li>Click <strong>Export → CSV</strong></li>
+    <li>Back in Outreach: choose the CSV file under <strong>"Outscraper CSV File"</strong></li>
+    <li>(Optional) Set a <strong>Minimum Rating Filter</strong> — No minimum / 3.5★+ / 4.0★+ (default) / 4.5★+</li>
+    <li>Click <strong>Import Leads</strong></li>
+  </ol>
+
+  <h4>Import results summary</h4>
+  <p>After uploading, Outreach shows exactly what happened to every row:</p>
+  <table>
+    <tr><th>Result</th><th>Meaning</th></tr>
+    <tr><td>✅ Imported</td><td>New leads added to your database</td></tr>
+    <tr><td>🌐 Skipped (has website)</td><td>Business already has a website — not a target</td></tr>
+    <tr><td>📋 Skipped (duplicate)</td><td>Already exists (matched by Google Place ID or phone number)</td></tr>
+    <tr><td>📵 Skipped (no phone)</td><td>Can't be contacted via SMS</td></tr>
+    <tr><td>⭐ Skipped (low rating)</td><td>Below your chosen minimum rating</td></tr>
+    <tr><td>Errors</td><td>Any rows that couldn't be processed (first 3 shown)</td></tr>
+  </table>
+  <p>On success, you're automatically redirected to the Leads page after 2 seconds.</p>
+
+  <div class="note">
+    <strong>ℹ️ Expected CSV columns:</strong> <code>name, rating, reviews, phone, type, full_address, city, state, country_code, place_id, site, url</code> — Outreach auto-detects column names, so most Outscraper exports work without changes.
+  </div>
+
+  <h3>Tab 2 — API Search</h3>
+  <div class="warn"><strong>⚠️ Less accurate:</strong> this method filters <em>after</em> fetching results, so "no website" detection isn't as reliable as the CSV method above.</div>
+  <h4>Fields</h4>
+  <table>
+    <tr><th>Field</th><th>Notes</th></tr>
+    <tr><td><strong>Business Type</strong> (required)</td><td>e.g. "restaurants", "plumbers"</td></tr>
+    <tr><td><strong>Location</strong></td><td>e.g. "Bristol UK", "Miami FL"</td></tr>
+    <tr><td><strong>Max Results</strong></td><td>Default 100, max 500</td></tr>
+  </table>
+  <p><strong>Quick Presets</strong> — one-click buttons to fill the Business Type field: Restaurants, Hair Salons, Plumbers, Electricians, Auto Repair, Dentists.</p>
+  <p>Click <strong>Start Scraping</strong> — a progress dialog appears showing live "Found" / "Stored" / "Status" counters while Outscraper works (usually 1–3 minutes). When done, you'll see a toast with the result and the job appears in the table below. All results are stored — apply your rating/phone/website filters afterwards on the <a href="#leads">Leads page</a>.</p>
+
+  <h3>Recent API Jobs table</h3>
+  <table>
+    <tr><th>Column / Button</th><th>What it shows / does</th></tr>
+    <tr><td>Query / Location</td><td>What you searched for</td></tr>
+    <tr><td>Total Found / Stored</td><td>How many results Outscraper returned vs. how many were actually saved (after de-dup/filters)</td></tr>
+    <tr><td>Status</td><td>pending / running / completed / failed</td></tr>
+    <tr><td><strong>View Leads</strong></td><td>Jumps to the Leads page (only shown if results were stored)</td></tr>
+    <tr><td>🗑️ <strong>Delete</strong></td><td>Removes this job record</td></tr>
+    <tr><td><strong>Clear Empty</strong></td><td>Bulk-deletes every job that returned zero results</td></tr>
+    <tr><td><strong>Refresh</strong></td><td>Reloads the jobs table</td></tr>
+  </table>
+
+  <!-- ============================================================ -->
+  <!-- AI CHAT TEST -->
+  <!-- ============================================================ -->
+  <h2 id="ai-chat" class="page-break">🤖 AI Chat Test</h2>
+  <p>The AI Chat Test page (<code>/ai-chat</code>) is a <strong>safe playground</strong> — it lets you have a full conversation with your AI exactly as a real lead would experience it, without sending any real SMS or touching your database.</p>
+
+  <h3>Setting up a test</h3>
+  <table>
+    <tr><th>Field</th><th>Default</th><th>Purpose</th></tr>
+    <tr><td>Business Name</td><td>Joe's Hair Studio</td><td>Stands in for the lead's business name in the conversation</td></tr>
+    <tr><td>Google Rating</td><td>4.8</td><td>Simulates the lead's star rating</td></tr>
+    <tr><td>Number of Reviews</td><td>143</td><td>Simulates their review count</td></tr>
+  </table>
+  <p>Click <strong>Start New Conversation</strong> — the AI sends its opening message, exactly like it would to a real lead.</p>
+
+  <h3>Replying as the "business owner"</h3>
+  <p>Type in the input box and press <strong>Send</strong> (or Enter), or use a quick-reply button:</p>
+  <ul>
+    <li>"Yes, that's us!"</li>
+    <li>"Yes please!"</li>
+    <li>"No thanks"</li>
+    <li>"What's your website?"</li>
+    <li>"Stop"</li>
+  </ul>
+  <p>The conversation ends automatically once the lead is flagged interested, declines, or opts out — at that point the input box disables.</p>
+
+  <div class="tip">
+    <strong>💡 Use this whenever you change the AI's prompt or message templates</strong> in <a href="#ai-settings">AI Settings</a> — run through a few scenarios here first to make sure everything still sounds right before real leads see it.
+  </div>
+  <div class="note"><strong>ℹ️ 100% simulation</strong> — no real SMS is sent, and nothing is saved. Refreshing the page clears the test conversation.</div>
+
+  <!-- ============================================================ -->
+  <!-- AI SETTINGS -->
+  <!-- ============================================================ -->
+  <h2 id="ai-settings" class="page-break">🧠 AI Settings — Conversation Control Centre</h2>
+  <p>The AI Settings page (<code>/conversation-settings</code>) is where you control <strong>everything the AI says and how it behaves</strong>. Changes apply <strong>instantly</strong> to all future conversations — no restart needed.</p>
+
+  <div class="danger">
+    <strong>🔴 "Reset All Templates to Default"</strong> button at the top of this page wipes out <em>all</em> your customisations — system prompt, every message template, and follow-ups — and restores the factory defaults. It asks for confirmation first. Use only if things have gotten badly out of shape.
+  </div>
+
+  <p>The page has 4 tabs:</p>
+
+  <h3>Tab 1 — AI System Prompt</h3>
+  <p>This is the AI's "personality" and rulebook — instructions that guide every reply, in addition to the message templates below.</p>
+  <h4>GPT Model selector</h4>
+  <table>
+    <tr><th>Model</th><th>Description</th></tr>
+    <tr><td><strong>gpt-4o</strong> <span class="badge green">Recommended ⭐ (default)</span></td><td>Best conversation quality — handles objections, builds rapport, stays on-message</td></tr>
+    <tr><td>gpt-4o-mini</td><td>Fast &amp; cheap — good for high volume</td></tr>
+    <tr><td>gpt-4-turbo</td><td>Balanced speed/cost/quality</td></tr>
+    <tr><td>gpt-3.5-turbo</td><td>Cheapest, lower quality</td></tr>
+  </table>
+  <p>The model is saved automatically the moment you change the dropdown.</p>
+
+  <h4>System Prompt textarea</h4>
+  <p>A large editable text box containing the AI's full instructions — its mission, conversation flow, key talking points, and SMS style rules (keep it short, warm, never pushy, etc.). You can rewrite any part of it.</p>
+  <p>Available variables you can use anywhere in the prompt: <code>{agent_name}</code> <code>{business_name}</code> <code>{lead_name}</code> <code>{rating}</code> <code>{reviews}</code> <code>{website}</code></p>
+  <p>Buttons: <strong>Save System Prompt</strong> and <strong>Reset to Default</strong> (reverts just this field).</p>
+
+  <h3>Tab 2 — Message Templates</h3>
+  <p>These are the building-block messages the AI uses (and the fallback texts if OpenAI is ever unreachable). Each has its own <strong>Save</strong> and <strong>Reset</strong> button.</p>
+  <table>
+    <tr><th>Template</th><th>Used when…</th><th>Variables available</th></tr>
+    <tr><td><strong>Opening Message</strong> <span class="badge grey">Step 0</span></td><td>The very first SMS sent to a brand-new lead</td><td><code>{business_name}</code></td></tr>
+    <tr><td><strong>Step 1 — Rating + Gap</strong></td><td>After the lead confirms "yes that's us"</td><td><code>{agent_name}</code> <code>{business_name}</code></td></tr>
+    <tr><td><strong>Step 2 — The Offer</strong></td><td>The free-website pitch</td><td><code>{business_name}</code></td></tr>
+    <tr><td><strong>Interested Acknowledgement</strong> <span class="badge green">✅ Yes</span></td><td>Lead says yes to the offer — also flags them for your manual follow-up</td><td>—</td></tr>
+    <tr><td><strong>Not Interested</strong> <span class="badge red">❌ No</span></td><td>Lead politely declines</td><td>—</td></tr>
+    <tr><td><strong>Opt-Out Confirmation</strong> <span class="badge dark">🚫 Stop</span></td><td>Lead says STOP/unsubscribe — they are never messaged again</td><td>—</td></tr>
+    <tr><td><strong>Unclear Reply</strong> <span class="badge yellow">❓ Unclear</span></td><td>The reply is ambiguous — AI asks for a simple yes/no</td><td>—</td></tr>
+    <tr><td><strong>Who Are You?</strong> <span class="badge blue">🏢 Identity</span></td><td>Lead asks who's texting them / what your company is</td><td><code>{agent_name}</code> <code>{business_name}</code> <code>{website}</code></td></tr>
+    <tr><td><strong>Where Did You Get My Number?</strong> <span class="badge blue">📱 Number</span></td><td>Privacy objection — explains it's from their public Google listing, offers STOP</td><td>—</td></tr>
+  </table>
+
+  <h3>Tab 3 — Follow-Up Messages</h3>
+  <table>
+    <tr><th>Template</th><th>Sent when…</th></tr>
+    <tr><td><strong>Follow-Up #1</strong> (first reminder)</td><td>A lead hasn't replied after the configured interval (default 3 days)</td></tr>
+    <tr><td><strong>Follow-Up #2</strong> (final reminder)</td><td>Still no reply after another interval — this is the last automatic message</td></tr>
+  </table>
+  <p>The <em>timing</em> (interval and max count) is set on the <a href="#admin">Admin page → Auto Follow-Up</a> card — this tab only controls the wording.</p>
+
+  <h3>Tab 4 — Live Preview</h3>
+  <p>A mini version of the AI Chat Test built right into this page — start a conversation, try quick replies (<em>Yes / No thanks / Who is this? / Number? / Stop</em>), and instantly see how your edits sound. Click <strong>Open Full Chat Tester</strong> for the full-size version.</p>
+
+  <!-- ============================================================ -->
+  <!-- ADMIN -->
+  <!-- ============================================================ -->
+  <h2 id="admin" class="page-break">⚙️ Admin</h2>
+  <p>The Admin page (<code>/admin</code>) is your control panel for limits, automation, business identity, and diagnostic tools.</p>
+
+  <h3>Top toolbar</h3>
+  <table>
+    <tr><th>Button</th><th>What it does</th></tr>
+    <tr><td><strong>View App Logs</strong></td><td>Shows the raw application log (last 200 lines) — useful when something isn't working and you need to show your developer what happened</td></tr>
+    <tr><td><strong>View SMS Logs</strong></td><td>Shows a table of recent inbound/outbound SMS with status — confirms whether a message actually sent</td></tr>
+    <tr><td><strong>Test Webhook</strong></td><td>Opens a popup to simulate a lead replying — pick any GHL-imported lead and a test message, click "Send Test" to confirm the AI pipeline responds correctly</td></tr>
+    <tr><td><strong>Add Test Lead</strong></td><td>Opens a popup to add one test lead (e.g. your own phone number) with a Business Name, Phone, and Rating — handy for end-to-end testing with a real phone</td></tr>
+    <tr><td><strong>Refresh Stats</strong></td><td>Reloads the System Stats numbers at the bottom of the page</td></tr>
+  </table>
+  <div class="note"><strong>ℹ️ Hidden shortcut:</strong> clicking the page title "Admin Settings" 5 times also reveals the SMS/debug logs panel.</div>
+
+  <h3>Card: Daily SMS Limit</h3>
+  <p>Shows <strong>Sent Today</strong>, <strong>Remaining</strong>, and the current <strong>Daily Limit</strong>. Set <strong>"Max messages per day"</strong> (1–500, default 50) and click <strong>Save Limit</strong>.</p>
+  <div class="note">This is a hard safety cap — once reached, <em>no more SMS go out for the rest of the day</em>, regardless of Smart Send settings. Resets at midnight UTC.</div>
+
+  <h3>Card: Auto Follow-Up</h3>
+  <table>
+    <tr><th>Control</th><th>Default</th><th>Purpose</th></tr>
+    <tr><td>Enable automatic follow-ups (toggle)</td><td>On</td><td>Turns the whole feature on/off</td></tr>
+    <tr><td>Follow-up interval (days)</td><td>3</td><td>How long to wait with no reply before sending Follow-Up #1 (and again before #2)</td></tr>
+    <tr><td>Max follow-ups per lead</td><td>2</td><td>Caps how many times a silent lead gets re-messaged</td></tr>
+  </table>
+  <p>Buttons: <strong>Save</strong>, <strong>Preview</strong> (shows how many leads are due for a follow-up <em>right now</em>), and <strong>Run Now</strong> (sends follow-ups to every eligible lead immediately — asks for confirmation first).</p>
+
+  <h3>Card: Business Identity</h3>
+  <table>
+    <tr><th>Field</th><th>Used for</th></tr>
+    <tr><td><strong>Your Business Name</strong></td><td>Fills <code>{business_name}</code> everywhere — your company's name as the AI mentions it</td></tr>
+    <tr><td><strong>Your Website</strong></td><td>Sent when a lead asks "who are you?" or "what's your website?"</td></tr>
+    <tr><td><strong>Agent Name</strong></td><td>The name the AI introduces itself with (e.g. "Sarah") — fills <code>{agent_name}</code></td></tr>
+  </table>
+  <p>Click <strong>Save</strong> to apply everywhere instantly.</p>
+
+  <h3>Card: Opening Message</h3>
+  <p>This card just points you to <a href="#ai-settings">AI Settings → Message Templates → Opening Message</a>, which is now where the first SMS is edited.</p>
+
+  <h3>Card: AI Response Preview</h3>
+  <p>Six example boxes showing how the AI handles common replies — "yes please", "where did you get my number?", "too busy right now", "who is this?", "stop", "not interested" — plus a shortcut to <strong>Open Full Chat Tester</strong>.</p>
+
+  <h3 class="page-break">Card: Smart Send Scheduler</h3>
+  <p>Instead of blasting SMS to every lead at once (which can get your number flagged as spam by carriers), <strong>Smart Send paces messages out automatically</strong> — this is the recommended way to run outreach long-term.</p>
+
+  <h4>The toggle</h4>
+  <p>A switch at the top turns Smart Send <strong>on/off</strong>, with a badge showing <span class="badge green">● Active</span> or <span class="badge grey">○ Off</span>. While it's <strong>ON</strong>, the Dashboard's manual "Send Bulk SMS" button is blocked (to prevent double-sending) — you'll see a message directing you to turn Smart Send off first if you really need to send manually.</p>
+
+  <h4>Live stats</h4>
+  <p><strong>Today's Limit</strong> / <strong>Sent Today</strong> / <strong>Remaining</strong> — your current daily quota and how much of it is used.</p>
+
+  <h4>Warm-Up settings (left panel)</h4>
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>What it controls</th></tr>
+    <tr><td>Start (day 1)</td><td>20 msgs/day</td><td>How many messages go out on day 1 of warm-up</td></tr>
+    <tr><td>Increase/day</td><td>+2 msgs</td><td>How much the daily limit grows each day</td></tr>
+    <tr><td>Max limit</td><td>200 msgs/day</td><td>The ceiling the daily limit will never exceed</td></tr>
+  </table>
+  <p>A live preview line shows the resulting ramp, e.g. <em>"Day 1: 20 → Day 5: 28 → Day 10: 38 → Day 30: 78..."</em> — it updates instantly as you edit the numbers.</p>
+
+  <h4>Sending Window settings (right panel)</h4>
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>What it controls</th></tr>
+    <tr><td>Timezone</td><td>America/New_York</td><td>Which timezone the working hours below are based on. Click <strong>Auto-detect</strong> to scan your leads' locations and pick the most common timezone automatically</td></tr>
+    <tr><td>Start time / End time</td><td>07:00 / 18:00</td><td>Messages are only sent inside this daily window</td></tr>
+    <tr><td>Min gap / Max gap</td><td>3 / 12 minutes</td><td>Random delay between each message so sending looks natural, not automated</td></tr>
+  </table>
+
+  <h4>Buttons</h4>
+  <ul>
+    <li><strong>Save Settings</strong> — saves all warm-up and sending-window values</li>
+    <li><strong>Start Warm-Up from Today</strong> — resets the ramp so "Day 1" begins today (use the first time you turn Smart Send on, or after a long pause). Asks for confirmation first.</li>
+  </ul>
+
+  <h3>Debug / App Logs panels</h3>
+  <p>Two collapsible panels (toggled via the top toolbar buttons or the 5-click title trick):</p>
+  <ul>
+    <li><strong>Debug Logs (SMS Activity)</strong> — a table of recent inbound (← IN) and outbound (→ OUT) messages with timestamps, lead, phone, message text, conversation step, and status. Has its own Refresh/Hide buttons.</li>
+    <li><strong>Application Logs</strong> — the raw server log (last 200 lines), colour-coded by ERROR (red) / WARNING (orange) / INFO (green). Mainly useful when troubleshooting with your developer.</li>
+  </ul>
+
+  <h3>Card: System Stats</h3>
+  <p>Four running totals: <strong>Total Leads</strong>, <strong>SMS Messages</strong>, <strong>Follow-ups Sent</strong>, <strong>Scraping Jobs</strong>.</p>
+
+  <!-- ============================================================ -->
+  <!-- SETTINGS -->
+  <!-- ============================================================ -->
+  <h2 id="settings" class="page-break">🔧 Settings</h2>
+  <p>The Settings page (<code>/settings</code>) is mostly a <strong>reference page for your developer</strong> — it documents which API keys power the system and lets you check connection status. You won't need to touch this often, but it's useful to know what's here.</p>
+
+  <h3>API Keys Configuration</h3>
+  <p>An info box reminds you that API keys live in the server's <code>.env</code> file (not editable from the dashboard) — your developer edits that file and restarts the server to change them.</p>
+  <table>
+    <tr><th>Service</th><th>What it's used for</th><th>Status shown</th></tr>
+    <tr><td><strong>Outscraper</strong></td><td>Scrapes Google Maps to find businesses without websites</td><td>"Server Running" badge</td></tr>
+    <tr><td><strong>Go High Level (GHL)</strong></td><td>Creates contacts and sends/receives SMS</td><td><strong>Test Connection</strong> button — click to verify; shows "✅ Connected — {account}" or an error</td></tr>
+    <tr><td><strong>OpenAI (optional)</strong></td><td>Powers the AI's smart replies and intent detection. Falls back to rule-based logic if not configured</td><td>—</td></tr>
+  </table>
+
+  <h3>GHL Webhook Setup</h3>
+  <p>Shows your webhook URL (with a one-click <strong>Copy</strong> button) — this is the address GHL sends incoming SMS replies to, so the AI can process them.</p>
+  <div class="url-box" style="font-size:13px;">https://outreach.sms2cartdemo.com/api/webhooks/ghl</div>
+  <p>This only needs to be configured once (already done) under GHL → Settings → Integrations → Webhooks → event <strong>InboundMessage</strong>. Your developer would only revisit this if the domain ever changes.</p>
+
+  <h3>AI Conversation Flow (reference diagram)</h3>
+  <p>A static example showing the 4-step conversation end-to-end:</p>
+  <div class="chat">
+    <div class="msg bot"><div><div class="bubble">Hi! Is this Joe's Hair Studio? 👋 I'm Sarah from AMZUS Digital.</div><div class="label">🤖 AI Agent — Step 0/1</div></div></div>
+    <div class="msg user"><div><div class="bubble">Yes, that's us!</div><div class="label">Business owner</div></div></div>
+    <div class="msg bot"><div><div class="bubble">You have an impressive 4.8-star Google rating with 143 reviews — that really stands out! ⭐ However, we noticed there's no website linked to your Google profile...</div><div class="label">🤖 AI Agent — Step 2</div></div></div>
+    <div class="msg user"><div><div class="bubble">Oh, I didn't know that...</div><div class="label">Business owner</div></div></div>
+    <div class="msg bot"><div><div class="bubble">We've actually put together a free preview website for Joe's Hair Studio. Would you like the link? No obligation at all! 🌐</div><div class="label">🤖 AI Agent — Step 3 (Offer)</div></div></div>
+    <div class="msg user"><div><div class="bubble">Yes please!</div><div class="label">Business owner</div></div></div>
+    <div class="msg bot"><div><div class="bubble">Wonderful! I'll have that link ready shortly. One of our team will be in touch very soon. 😊</div><div class="label">🤖 AI Agent — Lead flagged INTERESTED ✅</div></div></div>
+  </div>
+
+  <h3>System Status</h3>
+  <p>Quick totals: Total Leads, Imported to GHL, Messages Sent, Interested Leads, Converted.</p>
+
+  <!-- ============================================================ -->
+  <!-- PIPELINE STATUS -->
+  <!-- ============================================================ -->
+  <h2 id="pipeline" class="page-break">📌 Pipeline Status Reference</h2>
+  <table>
+    <tr><th>Status</th><th>Meaning</th><th>Action Required</th></tr>
+    <tr><td><span class="badge grey">Not Contacted</span></td><td>Lead found, no SMS sent yet</td><td>Import to GHL → Send SMS (or let Smart Send handle it)</td></tr>
+    <tr><td><span class="badge cyan">Message Sent</span></td><td>Opening greeting sent</td><td>Wait for reply</td></tr>
+    <tr><td><span class="badge blue">Replied</span></td><td>AI conversation in progress</td><td>AI handles automatically (or you take over manually)</td></tr>
+    <tr><td><span class="badge yellow">Interested ⭐</span></td><td>Lead said yes to the website offer</td><td>Build their site on Lovable → mark Website Sent → send the link</td></tr>
+    <tr><td><span class="badge red">Not Interested</span></td><td>Lead declined</td><td>No action needed</td></tr>
+    <tr><td><span class="badge dark">Opted Out</span></td><td>Asked to stop</td><td>Never contacted again — automatic</td></tr>
+    <tr><td><span class="badge green">Website Sent</span></td><td>Lovable link delivered to the lead</td><td>Follow up on their decision</td></tr>
+    <tr><td><span class="badge green">Converted 🎉</span></td><td>Became a paying customer</td><td>Onboard them</td></tr>
+  </table>
+
+  <!-- ============================================================ -->
+  <!-- WORKFLOWS -->
+  <!-- ============================================================ -->
+  <h2 id="workflows" class="page-break">✅ Common Workflows</h2>
+
+  <h3>1. Daily 5-minute check-in</h3>
+  <ol>
+    <li>Open the <a href="#dashboard">Dashboard</a> — glance at Messages Sent, Interested Leads, and the SMS Activity chart</li>
+    <li>Go to <a href="#conversations">Conversations</a> → click the <strong>Manual Mode</strong> filter — handle anything you've personally taken over</li>
+    <li>Click the <strong>Interested</strong> filter — see if any new leads need a website built</li>
+  </ol>
+
+  <h3>2. Finding new leads (Scraping)</h3>
+  <ol>
+    <li>Go to <a href="#scraping">Scraping Jobs</a></li>
+    <li>Use the <strong>Import from Outscraper CSV</strong> tab (most accurate) — export from Outscraper with "Has website: No", "Rating ≥ 4.0", "Has phone: Yes", then upload here</li>
+    <li>Review the import summary, then go to <a href="#leads">Leads</a> to see your new businesses</li>
+  </ol>
+
+  <h3>3. Sending your first outreach batch</h3>
+  <ol>
+    <li>On <a href="#leads">Leads</a>, filter: Phone = Has Phone, Website = No Website, Rating = 4.0+</li>
+    <li>Select the leads (or "Select all X leads")</li>
+    <li>Click <strong>Import Selected to GHL</strong></li>
+    <li>Either click <strong>Send SMS to Selected</strong> for an immediate batch, <em>or</em> (recommended) turn on <a href="#admin">Smart Send</a> in Admin and let it pace sends automatically over the following days</li>
+  </ol>
+
+  <h3>4. Handling an interested lead end-to-end</h3>
+  <ol>
+    <li><a href="#leads">Leads</a> → filter Status = Interested</li>
+    <li>Build their website on <strong>Lovable</strong> (lovable.dev)</li>
+    <li>Click ✏️ on the lead → set Status = <strong>Website Sent</strong> → paste the Lovable URL → Save</li>
+    <li>Send the link to the business — either manually via <a href="#conversations">Conversations</a> (this auto-pauses the AI for that lead) or however you prefer</li>
+    <li>When they sign up, update Status = <strong>Converted</strong></li>
+  </ol>
+
+  <h3>5. Personally handling a tricky conversation</h3>
+  <ol>
+    <li>Go to <a href="#conversations">Conversations</a>, open the lead's thread</li>
+    <li>Click <strong>Take Over</strong> (or just start typing a manual reply — it auto-takes-over)</li>
+    <li>Reply as needed — use <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to send quickly</li>
+    <li>When finished, click <strong>Resume AI</strong> to hand back to the bot</li>
+  </ol>
+
+  <h3>6. Turning on Smart Send for the first time</h3>
+  <ol>
+    <li><a href="#admin">Admin</a> → Smart Send Scheduler</li>
+    <li>Review/adjust Warm-Up settings (Start/Increase/Max) and the Sending Window (timezone, hours, gaps) — click <strong>Auto-detect</strong> for timezone if unsure</li>
+    <li>Click <strong>Save Settings</strong></li>
+    <li>Click <strong>Start Warm-Up from Today</strong></li>
+    <li>Toggle Smart Send <strong>ON</strong></li>
+  </ol>
+
+  <h3>7. Customising what the AI says</h3>
+  <ol>
+    <li><a href="#ai-settings">AI Settings</a> → edit the System Prompt and/or Message Templates</li>
+    <li>Click <strong>Save</strong> on each field you change</li>
+    <li>Switch to the <strong>Live Preview</strong> tab (or open <a href="#ai-chat">AI Chat Test</a>) and run through "yes", "no", "stop", and "what's your website?" to confirm everything still sounds right</li>
+  </ol>
+
+  <!-- ============================================================ -->
+  <!-- GLOSSARY -->
+  <!-- ============================================================ -->
+  <h2 id="glossary" class="page-break">📘 Glossary</h2>
+  <table>
+    <tr><th>Term</th><th>Meaning</th></tr>
+    <tr><td><strong>GHL (Go High Level)</strong></td><td>The CRM/SMS platform that actually delivers your text messages and stores contacts. Runs automatically in the background.</td></tr>
+    <tr><td><strong>Outscraper</strong></td><td>The third-party service used to search Google Maps for businesses</td></tr>
+    <tr><td><strong>Lovable</strong></td><td>The tool used to quickly build the free demo websites you send to interested leads (lovable.dev)</td></tr>
+    <tr><td><strong>Webhook</strong></td><td>An automatic notification GHL sends to Outreach whenever a lead replies, so the AI can respond</td></tr>
+    <tr><td><strong>AI Active</strong></td><td>The bot is handling a conversation automatically</td></tr>
+    <tr><td><strong>Manual Mode</strong></td><td>You've taken over a conversation; the AI is paused and won't reply</td></tr>
+    <tr><td><strong>Conversation Step</strong></td><td>How far the AI has progressed with a lead (0 = not yet messaged, up to 3 = made the offer)</td></tr>
+    <tr><td><strong>Smart Send</strong></td><td>The automatic pacing system that sends messages gradually within working hours instead of all at once</td></tr>
+    <tr><td><strong>Warm-Up</strong></td><td>A gradually increasing daily sending limit (e.g. 20 → 22 → 24...) used when starting or restarting outreach, to protect your phone number's reputation</td></tr>
+    <tr><td><strong>Daily Send Limit</strong></td><td>The hard maximum number of SMS Outreach will send in a day, resets at midnight UTC</td></tr>
+    <tr><td><strong>Place ID</strong></td><td>Google's unique ID for a business — used to prevent the same business being imported twice</td></tr>
+    <tr><td><strong>Admin Password</strong></td><td>The single password required for any action that changes data — see <a href="#access">Login &amp; Admin Password</a></td></tr>
+  </table>
+
+  <!-- ============================================================ -->
+  <!-- FAQ -->
+  <!-- ============================================================ -->
+  <h2 id="faq" class="page-break">❓ FAQ</h2>
+
+  <h3>Will opted-out leads ever be messaged again?</h3>
+  <p>No. Once a lead's status is "Opted Out", the system never messages them again.</p>
+
+  <h3>Can the same business be scraped twice?</h3>
+  <p>No. Outreach de-duplicates by Google Place ID and phone number — the same business won't be imported twice.</p>
+
+  <h3>What happens after a lead says yes?</h3>
+  <p>The AI sends a final acknowledgement and stops auto-replying that conversation thread. You'll see them under Leads → Interested. From there it's a manual handoff — build their site and send the link.</p>
+
+  <h3>What's the difference between "Take Over" and just replying through GHL directly?</h3>
+  <p>Replying through Outreach's Conversations page keeps everything — AI and manual messages — in one searchable history, and automatically marks the lead as Manual Mode so the AI doesn't accidentally reply at the same time as you.</p>
+
+  <h3>I turned on Smart Send but "Send Bulk SMS" on the Dashboard says it's blocked — why?</h3>
+  <p>This is intentional. While Smart Send is active, it's already sending messages on a schedule in the background — a manual bulk send at the same time would double-message leads. Turn Smart Send off first if you need a one-off manual batch.</p>
+
+  <h3>How do I change what the AI says?</h3>
+  <p>Go to <a href="#ai-settings">AI Settings</a> → Message Templates / System Prompt. Changes apply immediately to all future messages.</p>
+
+  <h3>What if a lead has a website but the filter didn't catch it?</h3>
+  <p>Use the Outscraper CSV import method — it uses Outscraper's own server-side "no website" filter, which is far more accurate than Outreach's after-the-fact filtering.</p>
+
+  <h3>How much does Outscraper cost?</h3>
+  <p>Approximately $2–5 per 1,000 businesses scraped. New accounts get free credits.</p>
+
+  <!-- ============================================================ -->
+  <!-- TROUBLESHOOTING -->
+  <!-- ============================================================ -->
+  <h2 id="troubleshooting" class="page-break">🛠️ Troubleshooting</h2>
+
+  <table>
+    <tr><th>Problem</th><th>What to check / do</th></tr>
+    <tr><td>"Admin Password Required" keeps reappearing</td><td>You may have closed the browser tab/window — your session resets. Just re-enter <code>Lulah007!</code></td></tr>
+    <tr><td>"Incorrect password — try again"</td><td>Re-type carefully — it's case-sensitive and includes the <code>!</code> at the end</td></tr>
+    <tr><td>"Send Bulk SMS" is blocked / shows a Smart Send message</td><td>Smart Send is turned ON and already sending on a schedule. Either wait, or turn Smart Send off in <a href="#admin">Admin</a> first</td></tr>
+    <tr><td>The AI isn't replying to a specific lead</td><td>Open that conversation — check the AI Status badge. If it shows <span class="badge yellow">🟡 Manual Mode</span>, click <strong>Resume AI</strong></td></tr>
+    <tr><td>No SMS are sending at all</td><td>Check <a href="#admin">Admin → Daily SMS Limit</a> — "Remaining" may be 0 for today (resets at midnight UTC). Also check <a href="#settings">Settings → Test Connection</a> for GHL</td></tr>
+    <tr><td>A scrape returned 0 results</td><td>Try a broader location or business type, or use the <strong>Clear Empty</strong> button on Scraping Jobs to tidy up the job list</td></tr>
+    <tr><td>Need to see exactly what happened with a message</td><td><a href="#admin">Admin → View SMS Logs</a> shows every inbound/outbound message with timestamps and status</td></tr>
+    <tr><td>Something looks broken / an error occurred</td><td><a href="#admin">Admin → View App Logs</a> — copy the relevant lines and send to your developer</td></tr>
+  </table>
+
+  <!-- ============================================================ -->
+  <!-- CREDENTIALS -->
+  <!-- ============================================================ -->
+  <h2 id="credentials" class="page-break">🔐 System Credentials &amp; API Keys <span class="confidential">Confidential</span></h2>
+  <div class="danger">
+    <strong>⚠️ Keep this section private.</strong> These are the "behind the scenes" keys that connect Outreach to Outscraper, GHL, and OpenAI. Your day-to-day work only needs the <strong>Admin Password</strong> at the top of this guide — the items below are for your records (e.g. if you ever switch developers) and should be stored somewhere secure like a password manager, not shared publicly.
+  </div>
+
+  <h3>Outreach (this dashboard)</h3>
+  <table>
+    <tr><th>Item</th><th>Value</th><th>Notes</th></tr>
+    <tr><td>Dashboard URL</td><td><code>https://outreach.sms2cartdemo.com</code></td><td>No login needed to view</td></tr>
+    <tr><td>Admin Password</td><td><code>Lulah007!</code></td><td>Required for any change — see <a href="#access">Login &amp; Admin Password</a></td></tr>
+    <tr><td>SMS From Number</td><td><code>+1 (839) 257-5482</code></td><td>Twilio number connected via GHL — this is the number your leads see</td></tr>
+  </table>
+
+  <h3>Connected Services (server configuration)</h3>
+  <p>These values live in the server's <code>.env</code> file. Your developer needs them to set up or migrate the system — they are <strong>not</strong> entered anywhere in the dashboard itself.</p>
+  <table>
+    <tr><th>Service</th><th>Key</th><th>Value</th></tr>
+    <tr><td>Outscraper</td><td><code>OUTSCRAPER_API_KEY</code></td><td><code>YTU2YTllZTJmOWFlNGI3YTg0MjczYjM5YTNmOWZkZTB8MDdhYTlkMmQzMQ</code></td></tr>
+    <tr><td>Go High Level — Location ID</td><td><code>GHL_LOCATION_ID</code></td><td><code>f0IhTzGOf9o7ghh2AJS0</code></td></tr>
+    <tr><td>Go High Level — Access Token</td><td><code>GHL_ACCESS_TOKEN</code></td><td><code>pit-efa7fb3f-e51a-4915-a769-72916ad7deb7</code></td></tr>
+    <tr><td>OpenAI</td><td><code>OPENAI_API_KEY</code></td><td><code>sk-proj-zkzN…(truncated for safety — full key is in the server .env file)</code></td></tr>
+    <tr><td>GHL Webhook URL</td><td>—</td><td><code>https://outreach.sms2cartdemo.com/api/webhooks/ghl</code></td></tr>
+    <tr><td>Webhook Secret</td><td><code>WEBHOOK_SECRET</code></td><td>Not currently set</td></tr>
+  </table>
+
+  <h3>Your Outscraper &amp; GHL account logins</h3>
+  <p>Outreach connects to these services using the API keys above, but <strong>you (the business owner)</strong> may also want to log into the apps directly to manage billing, phone numbers, or view raw conversation records. Record those logins here for your own reference:</p>
+  <table>
+    <tr><th>Service</th><th>Login URL</th><th>Email / Username</th><th>Password</th></tr>
+    <tr><td>Go High Level (GHL)</td><td>app.gohighlevel.com</td><td>____________________</td><td>____________________</td></tr>
+    <tr><td>Outscraper</td><td>app.outscraper.com</td><td>____________________</td><td>____________________</td></tr>
+    <tr><td>OpenAI Platform</td><td>platform.openai.com</td><td>____________________</td><td>____________________</td></tr>
+    <tr><td>Lovable</td><td>lovable.dev</td><td>____________________</td><td>____________________</td></tr>
+  </table>
+  <p style="font-size:12px; color:#888;">(Fill in the blanks above and store this document securely — e.g. a password manager or an encrypted note — rather than printing/sharing it widely.)</p>
+
+  <!-- Footer -->
+  <div style="margin-top:50px; padding-top:20px; border-top:1px solid #eee; text-align:center; color:#999; font-size:12px;">
+    Outreach Automation System &nbsp;|&nbsp; outreach.sms2cartdemo.com &nbsp;|&nbsp; Powered by AMZUS Digital
+  </div>
+
+</div>
+
+</body>
+</html>
