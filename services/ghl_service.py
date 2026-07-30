@@ -17,6 +17,10 @@ class GHLService:
         self.access_token = current_app.config.get("GHL_ACCESS_TOKEN", "")
         self.location_id  = current_app.config.get("GHL_LOCATION_ID", "")
         self.sms_from     = current_app.config.get("SMS_FROM_NUMBER", "")
+        # Overridable so the end-to-end flow can be exercised against a local
+        # stub gateway. Unset in production, where the real GHL host is used.
+        self.base_url     = (current_app.config.get("GHL_API_BASE_URL")
+                             or self.BASE_URL).rstrip("/")
 
         if not self.access_token:
             raise ValueError("GHL_ACCESS_TOKEN is not configured.")
@@ -28,7 +32,7 @@ class GHLService:
         }
 
     def _request(self, method: str, endpoint: str, **kwargs) -> dict:
-        url = f"{self.BASE_URL}/{endpoint.lstrip('/')}"
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
         try:
             resp = requests.request(method, url, headers=self.headers, timeout=30, **kwargs)
             resp.raise_for_status()

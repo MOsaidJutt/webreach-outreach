@@ -1,0 +1,12 @@
+# Tooling for scripts/verify_system.py only. Deliberately NOT in
+# requirements.txt — the deploy workflow installs that on the VPS, and none of
+# this belongs on a production server.
+#
+#   pip install -r requirements-dev.txt
+#   python -m playwright install chromium
+
+-r requirements.txt
+
+playwright>=1.45.0
+waitress>=3.0.0          # serves the app under test; avoids Werkzeug dev-server flakiness
+imageio-ffmpeg>=0.5.1    # transcodes the recording to MP4

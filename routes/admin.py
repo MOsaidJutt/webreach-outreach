@@ -1,11 +1,243 @@
-from datetime import date
+from datetime import date, datetime, timedelta
 from flask import Blueprint, request, jsonify, current_app
 from extensions import db
-from models import AppSettings, Lead, Conversation
+from models import AppSettings, Lead, Conversation, WebhookEvent
 from sqlalchemy import select, func
 from auth import require_admin_password
 
 admin_bp = Blueprint("admin", __name__)
+
+
+# ------------------------------------------------------------------ #
+# Inbound diagnostics
+# ------------------------------------------------------------------ #
+
+@admin_bp.route("/webhook-events", methods=["GET"])
+def webhook_events():
+    """Every hit on /api/webhooks/ghl, including the ones we could not act on."""
+    limit = min(int(request.args.get("limit", 50)), 500)
+    outcome = request.args.get("outcome", "")
+
+    stmt = select(WebhookEvent).order_by(WebhookEvent.created_at.desc()).limit(limit)
+    if outcome:
+        stmt = select(WebhookEvent).where(WebhookEvent.outcome == outcome) \
+                                   .order_by(WebhookEvent.created_at.desc()).limit(limit)
+
+    events = db.session.execute(stmt).scalars().all()
+    return jsonify({"events": [e.to_dict() for e in events], "count": len(events)})
+
+
+@admin_bp.route("/webhook-health", methods=["GET"])
+def webhook_health():
+    """
+    One call that answers "why didn't the AI reply?".
+
+    Distinguishes the three causes that used to look identical from the UI:
+    GHL never called us, it called us but no lead matched, or it matched but
+    the outbound send failed.
+    """
+    from services.conversation_ai import get_ai_mode, openai_available
+
+    since = datetime.utcnow() - timedelta(days=7)
+    counts = dict(db.session.execute(
+        select(WebhookEvent.outcome, func.count(WebhookEvent.id))
+        .where(WebhookEvent.created_at >= since)
+        .group_by(WebhookEvent.outcome)
+    ).all())
+
+    last_event = db.session.execute(
+        select(WebhookEvent).order_by(WebhookEvent.created_at.desc()).limit(1)
+    ).scalar_one_or_none()
+
+    last_inbound = db.session.execute(
+        select(Conversation).where(Conversation.direction == "inbound")
+        .order_by(Conversation.created_at.desc()).limit(1)
+    ).scalar_one_or_none()
+
+    last_outbound = db.session.execute(
+        select(Conversation).where(Conversation.direction == "outbound")
+        .order_by(Conversation.created_at.desc()).limit(1)
+    ).scalar_one_or_none()
+
+    ghl_configured = bool(current_app.config.get("GHL_ACCESS_TOKEN"))
+    total = sum(counts.values())
+    problems = []
+
+    if total == 0:
+        problems.append(
+            "No webhook has ever reached this server. Point GHL at "
+            f"{current_app.config.get('APP_URL', '')}/api/webhooks/ghl and make sure the "
+            "workflow trigger is 'Customer Replied' / inbound SMS."
+        )
+    if counts.get("no_lead"):
+        problems.append(
+            f"{counts['no_lead']} inbound message(s) matched no lead. The number that "
+            "texted is not in the lead list, or its GHL contact was recreated."
+        )
+    if counts.get("no_text"):
+        problems.append(
+            f"{counts['no_text']} webhook(s) arrived with no message text — map the "
+            "message body to a 'message' or 'body' field in the GHL workflow."
+        )
+    if counts.get("send_failed"):
+        problems.append(
+            f"{counts['send_failed']} reply/replies were generated but GHL refused to send "
+            "them. Check the GHL token scopes and the SMS from-number."
+        )
+    if not ghl_configured:
+        problems.append("GHL_ACCESS_TOKEN is not set — no SMS can be sent.")
+    if current_app.config.get("WEBHOOK_SECRET"):
+        problems.append(
+            "WEBHOOK_SECRET is set. Signatures are only checked when GHL sends one, "
+            "but leave it blank unless you have configured signing in GHL."
+        )
+
+    from version import BUILD
+
+    return jsonify({
+        "build": BUILD,
+        "healthy": not problems,
+        "problems": problems,
+        "ai_mode": get_ai_mode(),
+        "openai_configured": openai_available(),
+        "ghl_configured": ghl_configured,
+        "webhook_url": f"{current_app.config.get('APP_URL', '')}/api/webhooks/ghl",
+        "events_last_7_days": counts,
+        "total_events_last_7_days": total,
+        "last_event": last_event.to_dict() if last_event else None,
+        "last_inbound_at": last_inbound.created_at.isoformat() if last_inbound else None,
+        "last_outbound_at": last_outbound.created_at.isoformat() if last_outbound else None,
+        "autocreate_leads": AppSettings.get("webhook_autocreate_leads", "true") == "true",
+    })
+
+
+@admin_bp.route("/diagnostics", methods=["GET"])
+def diagnostics():
+    """
+    Everything needed to work out why a reply did or didn't happen, in one
+    response — build marker, config state, recent webhooks, recent messages and
+    the tail of the log. The Admin page copies this to the clipboard so it can
+    be pasted straight into a support message.
+
+    Secrets are never included; only whether each one is set.
+    """
+    import os
+    from version import BUILD, CHANGES
+    from services.conversation_ai import get_ai_mode, openai_available
+
+    def _cfg_set(key):
+        return bool(str(current_app.config.get(key, "") or "").strip())
+
+    events = db.session.execute(
+        select(WebhookEvent).order_by(WebhookEvent.created_at.desc()).limit(25)
+    ).scalars().all()
+
+    recent_msgs = db.session.execute(
+        select(Conversation, Lead).join(Lead, Conversation.lead_id == Lead.id)
+        .order_by(Conversation.created_at.desc()).limit(25)
+    ).all()
+
+    log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "instance", "app.log")
+    log_tail = []
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+                log_tail = [line.rstrip() for line in f.readlines()[-120:]]
+        except Exception as e:
+            log_tail = [f"(could not read log: {e})"]
+    else:
+        log_tail = ["(no log file yet — instance/app.log does not exist)"]
+
+    settings_of_interest = [
+        "ai_mode", "webhook_autocreate_leads", "smart_send_enabled",
+        "daily_send_limit", "send_start_time", "send_end_time", "send_timezone",
+        "send_min_interval_mins", "send_max_interval_mins",
+        "warmup_start_date", "followup_enabled", "business_name", "sms_agent_name",
+    ]
+
+    return jsonify({
+        "build": BUILD,
+        "build_contains": CHANGES,
+        "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "webhook_url": f"{current_app.config.get('APP_URL', '')}/api/webhooks/ghl",
+        "config": {
+            "GHL_ACCESS_TOKEN_set": _cfg_set("GHL_ACCESS_TOKEN"),
+            "GHL_LOCATION_ID_set": _cfg_set("GHL_LOCATION_ID"),
+            "SMS_FROM_NUMBER_set": _cfg_set("SMS_FROM_NUMBER"),
+            "OPENAI_API_KEY_set": openai_available(),
+            "WEBHOOK_SECRET_set": _cfg_set("WEBHOOK_SECRET"),
+            "APP_URL": current_app.config.get("APP_URL", ""),
+            "ai_mode": get_ai_mode(),
+        },
+        "settings": {k: AppSettings.get(k) for k in settings_of_interest},
+        "counts": {
+            "leads": db.session.scalar(select(func.count(Lead.id))) or 0,
+            "imported_to_ghl": db.session.scalar(
+                select(func.count(Lead.id)).where(Lead.imported_to_ghl == True)) or 0,
+            "conversations": db.session.scalar(select(func.count(Conversation.id))) or 0,
+            "webhook_events_total": db.session.scalar(select(func.count(WebhookEvent.id))) or 0,
+        },
+        "webhook_events": [e.to_dict() for e in events],
+        "recent_messages": [{
+            "time": c.created_at.isoformat() if c.created_at else "",
+            "direction": c.direction, "status": c.status, "step": c.step,
+            "lead": l.business_name, "phone": l.phone,
+            "message": (c.message or "")[:300],
+        } for c, l in recent_msgs],
+        "log_tail": log_tail,
+    })
+
+
+@admin_bp.route("/dry-run-inbound", methods=["POST"])
+@require_admin_password
+def dry_run_inbound():
+    """
+    Run a message through the exact live reply engine without sending an SMS
+    and without touching the lead's state — so the whole pipeline can be
+    verified against real leads with no risk of texting anyone.
+    """
+    data = request.get_json() or {}
+    message = (data.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
+    lead_id = data.get("lead_id")
+    if lead_id:
+        lead = db.session.get(Lead, lead_id)
+        if not lead:
+            return jsonify({"error": f"Lead {lead_id} not found"}), 404
+    else:
+        class _Lead:
+            id = 0
+            business_name = data.get("business_name") or "Joe's Hair Studio"
+            rating = data.get("rating") or 4.8
+            reviews_count = data.get("reviews") or 143
+            conversation_step = int(data.get("step") or 0)
+            status = "message_sent"
+            ai_paused = False
+        lead = _Lead()
+
+    step_override = data.get("step")
+    original_step = lead.conversation_step
+    if step_override is not None:
+        lead.conversation_step = int(step_override)
+
+    from services.conversation_ai import resolve_reply, get_ai_mode
+    try:
+        decision = resolve_reply(lead, message, data.get("history") or [])
+    finally:
+        lead.conversation_step = original_step
+        db.session.rollback()   # a dry run must never persist anything
+
+    out = decision.to_dict()
+    out.update({
+        "mode": get_ai_mode(),
+        "lead": getattr(lead, "business_name", ""),
+        "from_step": int(step_override) if step_override is not None else original_step,
+        "would_send": bool(decision.reply),
+        "dry_run": True,
+    })
+    return jsonify(out)
 
 
 @admin_bp.route("/settings", methods=["GET"])

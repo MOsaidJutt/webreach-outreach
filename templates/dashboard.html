@@ -110,6 +110,7 @@
         <button class="btn btn-outline-success" onclick="sendBulkSMS()">
           <i class="bi bi-send me-1"></i> Send Bulk SMS
         </button>
+        <div class="alert alert-info py-2 px-3 mb-0 w-100 small" id="bulkProgress" style="display:none"></div>
         <a href="/leads?status=interested" class="btn btn-warning text-white">
           <i class="bi bi-star me-1"></i> View Interested Leads
         </a>
@@ -306,16 +307,52 @@ async function sendBulkSMS() {
     showToast("Smart Send is active — it handles sending automatically with proper intervals. Disable Smart Send first to use manual batch.", "error");
     return;
   }
-  if (!confirm("Send initial SMS to all GHL-imported leads that haven't been contacted yet?\n\nNote: this sends immediately without intervals. Use Smart Send for proper warm-up.")) return;
+  if (!confirm("Send the initial SMS to every GHL-imported lead that hasn't been contacted yet?\n\n"
+    + "Messages go out one at a time, spaced by the gap set in Admin → Sending Window, "
+    + "and only inside your sending hours.")) return;
   try {
     const data = await api("POST", "/api/leads/send-bulk-sms");
-    showToast(data.message || `Sent ${data.results.sent} messages (${data.results.failed} failed)`);
+    showToast(data.message);
+    pollBulkProgress();
     loadDashboard();
   } catch (e) {
     showToast(e.message, "error");
   }
 }
 
+// Sending now takes minutes rather than seconds, so surface the progress
+// instead of leaving the page looking idle.
+let bulkPollTimer = null;
+async function pollBulkProgress() {
+  clearInterval(bulkPollTimer);
+  const bar = document.getElementById("bulkProgress");
+  bulkPollTimer = setInterval(async () => {
+    try {
+      const s = await api("GET", "/api/leads/bulk-send-status");
+      if (!s.running && !s.total) { bar.style.display = "none"; clearInterval(bulkPollTimer); return; }
+      bar.style.display = "";
+      const next = s.next_at ? new Date(s.next_at + "Z").toLocaleTimeString() : "—";
+      bar.innerHTML = s.running
+        ? `<i class="bi bi-hourglass-split me-1"></i> Sending ${s.sent}/${s.total}`
+          + (s.failed ? ` · ${s.failed} failed` : "")
+          + ` · next at ${next}`
+          + ` <button class="btn btn-sm btn-outline-danger ms-2" onclick="cancelBulk()">Stop</button>`
+        : `<i class="bi bi-check-circle me-1"></i> Bulk send finished — ${s.sent} sent`
+          + (s.failed ? `, ${s.failed} failed` : "");
+      if (!s.running) { clearInterval(bulkPollTimer); loadDashboard(); }
+    } catch (e) { clearInterval(bulkPollTimer); }
+  }, 5000);
+}
+
+async function cancelBulk() {
+  try {
+    const d = await api("POST", "/api/leads/bulk-send-cancel");
+    showToast(d.message);
+  } catch (e) { showToast(e.message, "error"); }
+}
+
 loadDashboard();
+// Pick up a bulk send that is already running from an earlier page load.
+pollBulkProgress();
 </script>
 {% endblock %}

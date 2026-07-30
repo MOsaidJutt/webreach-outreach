@@ -7,3 +7,8 @@ instance/
 .env
 *.log
 .DS_Store
+
+# Verification run artefacts
+scripts/output/
+scripts/.assetcache/
+scripts_run.log

@@ -86,6 +86,67 @@
 
 <div class="row g-4">
 
+  <!-- Inbound Health — why did (or didn't) the AI reply? -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm" id="inboundHealthCard" style="border-left:4px solid #6c757d !important">
+      <div class="card-header bg-white border-0 fw-semibold pt-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-activity me-1 text-primary"></i> Inbound Health — is the AI replying?</span>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-dark" id="buildBadge" title="Deployed build">build …</span>
+          <span class="badge bg-secondary" id="healthBadge">Checking…</span>
+          <button class="btn btn-sm btn-primary" onclick="copyDiagnostics()">
+            <i class="bi bi-clipboard-check me-1"></i> Copy Diagnostics
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="loadInboundHealth()">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-lg-3 text-center">
+            <div class="fs-4 fw-bold text-success" id="hvReplied">—</div>
+            <div class="small text-muted">Replied (7d)</div>
+          </div>
+          <div class="col-6 col-lg-3 text-center">
+            <div class="fs-4 fw-bold text-warning" id="hvNoLead">—</div>
+            <div class="small text-muted">No matching lead</div>
+          </div>
+          <div class="col-6 col-lg-3 text-center">
+            <div class="fs-4 fw-bold text-danger" id="hvFailed">—</div>
+            <div class="small text-muted">Send failed</div>
+          </div>
+          <div class="col-6 col-lg-3 text-center">
+            <div class="fs-4 fw-bold text-primary" id="hvMode">—</div>
+            <div class="small text-muted">Reply mode</div>
+          </div>
+        </div>
+
+        <div id="healthProblems"></div>
+
+        <div class="bg-light rounded p-2 small font-monospace mb-3" id="healthWebhookUrl"></div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fw-semibold small">Recent inbound webhooks</span>
+          <button class="btn btn-xs btn-outline-secondary" onclick="loadWebhookEvents()">Refresh</button>
+        </div>
+        <div class="table-responsive" style="max-height:320px; overflow-y:auto">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Time</th><th>Outcome</th><th>From</th>
+                <th>Their message</th><th>Our reply</th><th>Detail</th>
+              </tr>
+            </thead>
+            <tbody id="webhookEventsBody">
+              <tr><td colspan="6" class="text-muted small">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Daily Send Limit -->
   <div class="col-lg-6">
     <div class="card border-0 shadow-sm">
@@ -428,6 +489,8 @@ window.addEventListener("DOMContentLoaded", () => {
   loadDailyStats();
   loadSmartSendStatus();
   previewFollowup();
+  loadInboundHealth();
+  loadWebhookEvents();
 
   document.getElementById("adminTitle").addEventListener("click", () => {
     titleClicks++;
@@ -439,6 +502,98 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+// ─── Inbound health ────────────────────────────────────────────────────────
+
+function _esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function loadInboundHealth() {
+  try {
+    const d = await api("GET", "/api/admin/webhook-health");
+    const c = d.events_last_7_days || {};
+
+    document.getElementById("hvReplied").textContent = c.replied || 0;
+    document.getElementById("hvNoLead").textContent  = c.no_lead || 0;
+    document.getElementById("hvFailed").textContent  = (c.send_failed || 0) + (c.error || 0);
+    document.getElementById("hvMode").textContent    =
+      { templates: "Templates", hybrid: "Hybrid", ai: "AI" }[d.ai_mode] || d.ai_mode;
+
+    const badge = document.getElementById("healthBadge");
+    badge.textContent = d.healthy ? "Healthy" : "Needs attention";
+    badge.className = "badge " + (d.healthy ? "bg-success" : "bg-warning text-dark");
+    document.getElementById("inboundHealthCard").style.borderLeftColor =
+      d.healthy ? "#198754" : "#ffc107";
+
+    if (d.build) {
+      const b = document.getElementById("buildBadge");
+      b.textContent = "build " + d.build;
+      b.title = "Deployed build. If this is older than the fix you expect, the server still has the old code.";
+    }
+
+    document.getElementById("healthWebhookUrl").innerHTML =
+      "<strong>GHL webhook URL:</strong> " + _esc(d.webhook_url) +
+      "  &nbsp;|&nbsp; GHL token: " + (d.ghl_configured ? "✅" : "❌") +
+      "  &nbsp;|&nbsp; OpenAI: " + (d.openai_configured ? "✅" : "— not configured (templates still work)");
+
+    document.getElementById("healthProblems").innerHTML = (d.problems || []).length
+      ? `<div class="alert alert-warning py-2 small mb-3"><ul class="mb-0 ps-3">
+           ${d.problems.map(p => `<li>${_esc(p)}</li>`).join("")}</ul></div>`
+      : `<div class="alert alert-success py-2 small mb-3">
+           <i class="bi bi-check-circle-fill me-1"></i>Inbound messages are being received and answered.</div>`;
+  } catch (e) {
+    document.getElementById("healthBadge").textContent = "Error";
+  }
+}
+
+// One click to gather everything needed to diagnose a silent AI, so it can be
+// pasted into a message rather than hunted for across three panels.
+async function copyDiagnostics() {
+  try {
+    const d = await api("GET", "/api/admin/diagnostics");
+    const text = JSON.stringify(d, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(`Diagnostics copied (build ${d.build}) — paste it into your message`);
+    } catch (clipErr) {
+      // Clipboard needs HTTPS or permission; fall back to a selectable window.
+      const w = window.open("", "_blank");
+      w.document.write("<pre style='white-space:pre-wrap;font:12px monospace;padding:16px'>"
+        + text.replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]))
+        + "</pre>");
+      w.document.title = "WebReach diagnostics — select all and copy";
+      showToast("Diagnostics opened in a new tab — select all and copy", "error");
+    }
+  } catch (e) {
+    showToast("Could not build diagnostics: " + e.message, "error");
+  }
+}
+
+async function loadWebhookEvents() {
+  const body = document.getElementById("webhookEventsBody");
+  try {
+    const d = await api("GET", "/api/admin/webhook-events?limit=25");
+    if (!d.events.length) {
+      body.innerHTML = `<tr><td colspan="6" class="text-muted small py-3">
+        No inbound webhook has reached this server yet. If a lead has replied in GHL,
+        the GHL workflow is not calling the webhook URL above.</td></tr>`;
+      return;
+    }
+    body.innerHTML = d.events.map(e => `
+      <tr>
+        <td class="small text-nowrap">${_esc((e.created_at || "").replace("T", " ").slice(0, 19))}</td>
+        <td><span class="badge bg-${e.outcome_color}">${_esc(e.outcome)}</span></td>
+        <td class="small">${_esc(e.phone || e.contact_id || "—")}</td>
+        <td class="small">${_esc((e.message || "").slice(0, 70))}</td>
+        <td class="small">${_esc((e.reply || "").slice(0, 70))}</td>
+        <td class="small text-muted">${_esc((e.detail || "").slice(0, 90))}</td>
+      </tr>`).join("");
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="6" class="text-danger small">${_esc(e.message)}</td></tr>`;
+  }
+}
 
 function toggleLogs() {
   const panel = document.getElementById("appLogsPanel");

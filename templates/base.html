@@ -102,7 +102,10 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<!-- Deferred: only used inside functions the dashboard calls on DOMContentLoaded,
+     so it must not block parsing if the CDN is slow. (Bootstrap stays blocking —
+     leads.html constructs a bootstrap.Modal at the top level of its script.) -->
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
   // Sidebar toggle for mobile
   document.getElementById("sidebarToggle")?.addEventListener("click", () => {

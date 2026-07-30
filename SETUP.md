@@ -81,13 +81,30 @@ Open `.env` in Notepad and fill in each value:
 ### OpenAI (Optional)
 - Get key from: https://platform.openai.com/api-keys
 - Paste to `OPENAI_API_KEY=...`
-- This improves intent detection for ambiguous replies (e.g. "maybe later")
-- Falls back to rule-based detection if not set
+- Optional. In the default **Templates only** reply mode it is not used at all.
+- It is only consulted in **Hybrid** or **AI writes everything** mode
+  (AI Settings → Reply Mode).
+
+### Reply Mode (AI Settings page)
+| Mode | Behaviour |
+|---|---|
+| **Templates only** *(default)* | The saved template is sent word for word, with only the variables filled in. What you see on the AI Settings page is exactly what the lead receives. |
+| **Hybrid** | Templates word for word, with OpenAI used only for a genuinely off-script question no template covers. |
+| **AI writes everything** | OpenAI writes each reply using the templates as a style guide — so the wording sent will differ from the text you saved. |
+
+Use the **AI Chat Test** page to check: every reply there is tagged with the
+template that produced it, or marked *written by OpenAI*.
+
+**Template variables:** `{business_name}` is always the *lead's* business.
+`{company_name}` is *your* agency. Write `I'm {agent_name} from {company_name}` —
+`from {business_name}` would introduce you using the lead's own name.
 
 ### Webhook Secret
-- Generate a random string (e.g. use https://randomkeygen.com)
-- Paste to `WEBHOOK_SECRET=...`
-- Use the same value when configuring the webhook in GHL
+**Leave `WEBHOOK_SECRET=` blank unless you have genuinely configured request
+signing in GHL.** GHL workflow webhooks do not send a signature header, so a
+secret set "just in case" used to make the server reject every inbound message
+silently. Signatures are now only checked when GHL actually sends one, but
+blank is still the right setting for a workflow-based webhook.
 
 ---
 
@@ -114,12 +131,54 @@ The webhook allows GHL to send incoming SMS replies to your server for AI proces
 **For production (VPS/cloud):**
 - Your webhook URL will be: `https://yourdomain.com/api/webhooks/ghl`
 
-**Register the webhook in GHL:**
+**Option A — Native webhook subscription (if your GHL plan has it):**
 1. Go to GHL → Settings → **Webhooks** (or Integrations → Webhooks)
 2. Click **Add Webhook**
 3. Enter your webhook URL from above
 4. Select event: **InboundMessage**
 5. Save
+
+**Option B — Workflow webhook action (most sub-accounts use this instead):**
+Many GHL sub-accounts don't expose a native webhook subscription for inbound
+messages — the reliable path is a Workflow: trigger **Customer Replied**
+(or **Inbound Message**) → action **Webhook**. When you build that action,
+set the request body to exactly this (adjust merge fields to what your GHL
+version calls them, but keep these key names):
+
+```json
+{
+  "type": "InboundMessage",
+  "contactId": "{{contact.id}}",
+  "conversationId": "{{message.conversationId}}",
+  "message": "{{message.body}}",
+  "phone": "{{contact.phone}}"
+}
+```
+
+The `contactId` and `message` keys are what the server looks for first. The
+`phone` field is a safety net — if `contactId` ever comes through blank or
+in a shape the server doesn't recognise, it will still match the lead by
+phone number as long as `phone` is present.
+
+**However you configure it, verify it — don't assume it's working:**
+
+1. Send yourself (or a test lead) a real reply once it's set up.
+2. Open the dashboard → **Admin → Inbound Health**.
+
+That panel is the single place that answers "why didn't the AI reply?". Every
+inbound webhook is recorded there with an outcome:
+
+| Outcome | Meaning | What to do |
+|---|---|---|
+| `replied` | Answered and the SMS was sent | Nothing — this is the good case |
+| *(no rows at all)* | GHL never called this server | Check the webhook URL, that the workflow is published, and that the domain is reachable from the internet |
+| `no_text` | The request arrived with no message body | Fix the workflow body — map the message to `message` or `body` |
+| `no_lead` | The number that texted isn't in the lead list | Import the lead, or leave auto-create on so it is handled automatically |
+| `send_failed` | A reply was written but GHL refused to send it | Check the GHL token scopes and the SMS from-number |
+| `manual_mode` | A human has taken the conversation over | Expected — resume the AI on the lead when you're done |
+
+The panel also shows the exact webhook URL to paste into GHL, and whether the
+GHL token and OpenAI key are configured.
 
 ---
 

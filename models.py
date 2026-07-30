@@ -38,6 +38,22 @@ class AppSettings(db.Model):
         # AI Model
         "ai_model": "gpt-4o",
 
+        # How replies are produced.
+        #   "templates" — send the saved template VERBATIM for every recognised
+        #                 reply. What you see on the AI Settings page is exactly
+        #                 what the lead receives. OpenAI is never consulted.
+        #   "hybrid"    — templates verbatim for the scripted steps and the
+        #                 known objections; OpenAI only for genuinely off-script
+        #                 questions that no template covers.
+        #   "ai"        — OpenAI writes every reply, using the templates only as
+        #                 a style guide (this paraphrases them).
+        "ai_mode": "templates",
+
+        # Create a lead automatically when an inbound SMS arrives from a number
+        # that isn't in the database yet. Without this a message from any
+        # untracked number is silently dropped.
+        "webhook_autocreate_leads": "true",
+
         # Smart Send Scheduler
         "smart_send_enabled":        "false",
         "warmup_start_limit":        "20",
@@ -51,10 +67,22 @@ class AppSettings(db.Model):
         "send_max_interval_mins":    "12",
 
         # Message templates
+        #
+        # Placeholders:
+        #   {business_name} / {lead_name} — the LEAD's business (e.g. "Joe's Hair Studio")
+        #   {company_name}  / {my_company} — YOUR agency (e.g. "AMZUS Digital")
+        #   {agent_name}                   — the SMS persona (e.g. "Sarah")
+        #   {rating} {reviews}             — the lead's Google rating / review count
+        #   {website}                      — your agency website
+        #
+        # {business_name} always means the LEAD. Use {company_name} when you
+        # mean your own agency — these used to be the same token, which made
+        # "I'm Sarah from {business_name}" render as "I'm Sarah from Joe's Hair
+        # Studio".
         "msg_opening": "Hi, is this the owner of {business_name}?",
 
         "msg_compliment": (
-            "Great! Thanks for confirming. I'm {agent_name} from {business_name} — we build professional websites for local businesses.\n\n"
+            "Great! Thanks for confirming. I'm {agent_name} from {company_name} — we build professional websites for local businesses.\n\n"
             "I noticed something on your Google profile that's actively costing you customers, "
             "and I'd love to show you how to fix it — completely free of charge, no catch, no obligation.\n\n"
             "Do you have 60 seconds for me to explain?"
@@ -105,9 +133,15 @@ class AppSettings(db.Model):
         ),
 
         "msg_who_are_you": (
-            "I'm {agent_name} from {business_name} — we specialise in building professional websites "
+            "I'm {agent_name} from {company_name} — we specialise in building professional websites "
             "for local businesses. You can check us out at {website}\n\n"
             "I reached out because I noticed your Google profile doesn't have a website linked."
+        ),
+
+        "msg_cost_question": (
+            "Great question — the demo costs you absolutely nothing. We build it, you look at it, "
+            "and if it's not for you we part ways with zero charge.\n\n"
+            "You'd only ever pay if you loved it and wanted to keep it live. Shall I show you?"
         ),
 
         "msg_number_question": (
@@ -118,7 +152,7 @@ class AppSettings(db.Model):
 
         # AI System Prompt
         "ai_system_prompt": (
-            "You are {agent_name}, a warm and professional outreach specialist for {business_name} "
+            "You are {agent_name}, a warm and professional outreach specialist for {company_name} "
             "({website}) — a web design agency that builds websites for local businesses.\n\n"
             "You are texting the owner of '{lead_name}', a local business with a "
             "{rating}-star Google rating and {reviews} reviews, who currently has NO website.\n\n"
@@ -132,7 +166,7 @@ class AppSettings(db.Model):
             "4. Make the free demo offer — ZERO cost, ZERO obligation to keep it\n"
             "5. If interested — confirm team will send the link shortly\n\n"
             "KEY MESSAGES TO CONVEY:\n"
-            "- You are from {business_name}, specialists in local business websites\n"
+            "- You are from {company_name}, specialists in local business websites\n"
             "- The demo/preview website is COMPLETELY FREE — no payment required ever to see it\n"
             "- They only pay if they LOVE it and CHOOSE to keep it live\n"
             "- Without a website, Google hides them from people actively searching\n"
@@ -144,7 +178,7 @@ class AppSettings(db.Model):
             "- Never be pushy — one gentle ask, then respect their answer\n"
             "- Handle ALL objections with empathy\n"
             "- If asked about cost: the DEMO is 100% free, no card needed, no obligation\n"
-            "- If asked who you are: mention {business_name} and {website}\n"
+            "- If asked who you are: mention {company_name} and {website}\n"
             "- If they say STOP/remove me: apologise, confirm removal\n"
             "- Remember EVERYTHING in the conversation history\n"
             "- Never repeat yourself — always move the conversation forward\n\n"
@@ -284,6 +318,57 @@ class Lead(db.Model):
             "last_contacted_at": (
                 self.last_contacted_at.isoformat() if self.last_contacted_at else None
             ),
+        }
+
+
+class WebhookEvent(db.Model):
+    """
+    Every inbound hit on /api/webhooks/ghl, recorded before any validation can
+    reject it — including the ones we could not act on.
+
+    Without this the only evidence of a dropped webhook was a line in a log file
+    on the VPS, so "the AI didn't reply" and "GHL never called us" looked
+    identical from the dashboard. `outcome` says which one it was.
+    """
+
+    __tablename__ = "webhook_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    outcome = db.Column(db.String(50))        # replied | no_text | no_lead | manual_mode | send_failed | ignored | error
+    detail = db.Column(db.Text)               # human-readable explanation
+    contact_id = db.Column(db.String(200))
+    phone = db.Column(db.String(50))
+    message = db.Column(db.Text)
+    lead_id = db.Column(db.Integer)
+    reply = db.Column(db.Text)
+    raw_body = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    OUTCOME_COLORS = {
+        "replied":     "success",
+        "manual_mode": "info",
+        "ignored":     "secondary",
+        "no_text":     "warning",
+        "no_lead":     "warning",
+        "send_failed": "danger",
+        "error":       "danger",
+    }
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "outcome": self.outcome,
+            "outcome_color": self.OUTCOME_COLORS.get(self.outcome, "secondary"),
+            "detail": self.detail,
+            "contact_id": self.contact_id,
+            "phone": self.phone,
+            "message": self.message,
+            "lead_id": self.lead_id,
+            "reply": self.reply,
+            "raw_body": self.raw_body,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 

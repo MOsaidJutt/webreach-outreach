@@ -10,11 +10,35 @@
   </button>
 </div>
 
-<div class="alert alert-info d-flex gap-2 mb-4">
+<!-- Reply mode -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-3 align-items-center">
+      <div class="col-auto">
+        <label class="form-label fw-semibold mb-0" for="ai_mode">
+          <i class="bi bi-toggles me-1 text-primary"></i> Reply Mode
+        </label>
+      </div>
+      <div class="col-md-4">
+        <select class="form-select" id="ai_mode" onchange="saveMode()">
+          <option value="templates">Templates only — send my text exactly ⭐ (Recommended)</option>
+          <option value="hybrid">Hybrid — templates, AI only for off-script questions</option>
+          <option value="ai">AI writes everything — templates are a style guide</option>
+        </select>
+      </div>
+      <div class="col">
+        <div class="small text-muted" id="modeHelp"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="alert alert-secondary d-flex gap-2 mb-4">
   <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
   <div>
-    <strong>All replies go through OpenAI.</strong> The message templates below are used as style guides for the AI,
-    and as fallbacks if OpenAI is unavailable. Changes take effect immediately — no restart needed.
+    Changes take effect immediately — no restart needed. Use
+    <a href="/ai-chat">AI Chat Test</a> to see exactly what a lead would receive; every reply there
+    is labelled with the template that produced it.
   </div>
 </div>
 
@@ -80,10 +104,24 @@
   <div class="row g-4">
 
     <div class="col-12">
-      <div class="alert alert-secondary small">
-        <strong>Variables:</strong>
-        <code>{business_name}</code> <code>{rating}</code> <code>{reviews}</code>
-        <code>{agent_name}</code> <code>{company_name}</code> <code>{website}</code>
+      <div class="alert alert-secondary small mb-0">
+        <strong class="d-block mb-1">Variables</strong>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <code>{business_name}</code> — the lead's business, e.g. <em>Joe's Hair Studio</em><br />
+            <code>{rating}</code> — their Google rating &nbsp;
+            <code>{reviews}</code> — their review count
+          </div>
+          <div class="col-md-6">
+            <code>{company_name}</code> — <strong>your</strong> agency, e.g. <em>AMZUS Digital</em><br />
+            <code>{agent_name}</code> — your SMS persona &nbsp;
+            <code>{website}</code> — your website
+          </div>
+        </div>
+        <div class="mt-2 pt-2 border-top">
+          Write <code>I'm {agent_name} from {company_name}</code> — never
+          <code>from {business_name}</code>, which is the lead's own name.
+        </div>
       </div>
     </div>
 
@@ -97,6 +135,7 @@
       ('msg_unclear',       'Unclear Reply', 'When reply is ambiguous', '❓ Unclear'),
       ('msg_who_are_you',   'Who Are You?', 'When lead asks about your company', '🏢 Identity'),
       ('msg_number_question','Where Did You Get My Number?', 'Privacy objection handler', '📱 Number'),
+      ('msg_cost_question', 'How Much Does It Cost?', 'Price / "what''s the catch" handler', '💷 Cost'),
     ] %}
 
     {% for key, title, desc, badge in templates %}
@@ -242,6 +281,12 @@ async function resetAllDefaults() {
   await loadAllSettings();
 }
 
+const MODE_HELP = {
+  templates: "Every reply is the template below, sent word for word with only the variables filled in. Nothing is rewritten. This is what you see in the AI Chat Test.",
+  hybrid:    "Templates are sent word for word. OpenAI is used only when a lead asks something genuinely off-script that no template covers.",
+  ai:        "OpenAI writes every reply itself, using the templates only as a style guide — so the wording sent will differ from the text below.",
+};
+
 async function loadAllSettings() {
   const data = await api("GET", "/api/admin/settings");
   settings = data.settings;
@@ -249,6 +294,17 @@ async function loadAllSettings() {
     const el = document.getElementById(key);
     if (el) el.value = settings[key] || "";
   });
+  updateModeHelp();
+}
+
+function updateModeHelp() {
+  const mode = document.getElementById("ai_mode").value;
+  document.getElementById("modeHelp").textContent = MODE_HELP[mode] || "";
+}
+
+async function saveMode() {
+  updateModeHelp();
+  await save("ai_mode");
 }
 
 async function save(key) {
@@ -304,12 +360,16 @@ async function getPreviewReply() {
     const data = await api("POST", "/api/chat/simulate", {
       business_name: biz, rating, reviews, messages: previewMessages
     });
-    appendPreviewMsg("bot", data.reply);
+    if (!data.reply) {
+      appendPreviewMsg("bot", "(no reply is due at this point — a human takes over here)", data);
+      return;
+    }
+    appendPreviewMsg("bot", data.reply, data);
     previewMessages.push({ role: "bot", text: data.reply });
   } catch(e) { showToast("Error: " + e.message, "error"); }
 }
 
-function appendPreviewMsg(role, text) {
+function appendPreviewMsg(role, text, meta) {
   const isBot = role === "bot";
   const el    = document.getElementById("previewThread");
   const div   = document.createElement("div");
@@ -318,10 +378,19 @@ function appendPreviewMsg(role, text) {
     <div style="max-width:75%">
       <div class="px-3 py-2 rounded-3 ${isBot ? "bg-white border shadow-sm" : "bg-primary text-white"}"
            style="font-size:.875rem; white-space:pre-wrap">${esc(text)}</div>
-      <div class="small text-muted mt-1 ${isBot ? "" : "text-end"}">${isBot ? "🤖 AI" : "👤 Lead"}</div>
+      <div class="small text-muted mt-1 ${isBot ? "" : "text-end"}">
+        ${isBot ? "🤖 AI" : "👤 Lead"}${isBot ? sourceBadge(meta) : ""}
+      </div>
     </div>`;
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
+}
+
+function sourceBadge(meta) {
+  if (!meta) return "";
+  if (meta.source === "openai") return ` <span class="badge bg-warning text-dark">written by OpenAI</span>`;
+  if (meta.template_key) return ` <span class="badge bg-success">${esc(meta.template_key)}</span>`;
+  return "";
 }
 
 function esc(s) {

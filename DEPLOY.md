@@ -196,3 +196,9 @@ From your Windows machine, upload changed files via SCP/FileZilla, then on the V
 ```bash
 systemctl restart webreach
 ```
+
+Database schema changes (new columns in `models.py`) are applied automatically
+on restart via the `migrations/` folder — no manual database step needed as
+long as the migration script was generated and committed on the dev machine
+first (`flask db migrate -m "..."` after changing `models.py`, before
+deploying).

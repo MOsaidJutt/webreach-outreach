@@ -246,18 +246,41 @@ def send_initial_sms(lead_id):
         return jsonify({"error": str(e)}), 500
 
 
+@leads_bp.route("/bulk-send-status", methods=["GET"])
+def bulk_send_status():
+    from services.smart_sender import get_bulk_state
+    return jsonify(get_bulk_state())
+
+
+@leads_bp.route("/bulk-send-cancel", methods=["POST"])
+@require_admin_password
+def bulk_send_cancel():
+    from services.smart_sender import cancel_bulk
+    cancel_bulk()
+    return jsonify({"message": "Bulk send will stop after the current message"})
+
+
 @leads_bp.route("/send-bulk-sms", methods=["POST"])
 @require_admin_password
 def send_bulk_sms():
+    import threading
+    from flask import current_app
     from models import AppSettings
     from datetime import datetime, timedelta
     from sqlalchemy import func as sqlfunc
+    from services.smart_sender import send_bulk_paced, get_bulk_state
 
     # Block manual bulk send when smart sender is active — it handles timing
     if AppSettings.get("smart_send_enabled", "false").lower() == "true":
         return jsonify({
             "message": "Smart Send is active — it will send messages automatically at the right intervals. "
                        "Turn off Smart Send first if you want to send manually.",
+            "results": {"sent": 0, "failed": 0, "errors": []}
+        }), 200
+
+    if get_bulk_state().get("running"):
+        return jsonify({
+            "message": "A bulk send is already in progress — watch its progress on the dashboard.",
             "results": {"sent": 0, "failed": 0, "errors": []}
         }), 200
 
@@ -284,36 +307,34 @@ def send_bulk_sms():
         Lead.ghl_contact_id.isnot(None),
         or_(Lead.last_contacted_at.is_(None), Lead.last_contacted_at < cutoff_24h),
     ).limit(remaining)
-    leads = db.session.execute(stmt).scalars().all()
+    lead_ids = [l.id for l in db.session.execute(stmt).scalars().all()]
 
-    ghl = GHLService()
-    results = {"sent": 0, "failed": 0, "errors": [], "daily_limit": daily_limit, "sent_today": sent_today}
+    if not lead_ids:
+        return jsonify({"message": "No leads are waiting to be contacted.",
+                        "results": {"sent": 0, "failed": 0, "errors": []}}), 200
 
-    for lead in leads:
-        try:
-            message = get_initial_message(lead)
-            convo = ghl.get_or_create_conversation(lead.ghl_contact_id)
-            convo_id = convo.get("id") or convo.get("conversationId")
-            result = ghl.send_sms(lead.ghl_contact_id, message, convo_id)
+    # Hand off to the paced sender. Messages go out one at a time with the
+    # configured random gap, inside the configured sending window — the same
+    # pacing Smart Send uses. Previously this loop fired every message back to
+    # back, which is why a batch all landed on the same minute.
+    min_gap = int(AppSettings.get("send_min_interval_mins", "3"))
+    max_gap = int(AppSettings.get("send_max_interval_mins", "12"))
+    app = current_app._get_current_object()
+    threading.Thread(target=send_bulk_paced, args=(app, lead_ids), daemon=True).start()
 
-            lead.ghl_conversation_id = convo_id
-            lead.status = "message_sent"
-            lead.conversation_step = 0
-            lead.last_contacted_at = datetime.utcnow()
-            lead.updated_at = datetime.utcnow()
-
-            db.session.add(Conversation(
-                lead_id=lead.id, direction="outbound", message=message,
-                step=0, status="sent", ghl_message_id=result.get("messageId", ""),
-            ))
-            # Commit per-lead so a crash mid-batch doesn't cause duplicate sends
-            db.session.commit()
-            results["sent"] += 1
-        except Exception as e:
-            db.session.rollback()
-            results["failed"] += 1
-            results["errors"].append(f"Lead {lead.id} ({lead.business_name}): {str(e)}")
-    return jsonify({"message": "Bulk SMS complete", "results": results})
+    average = (min_gap + max_gap) / 2
+    estimate = int(max(0, len(lead_ids) - 1) * average)
+    return jsonify({
+        "message": (f"Queued {len(lead_ids)} message(s). They will go out one at a time, "
+                    f"{min_gap}–{max_gap} minutes apart — roughly {estimate} minutes in total. "
+                    "You can close this page; sending continues on the server."),
+        "queued": len(lead_ids),
+        "min_gap_mins": min_gap,
+        "max_gap_mins": max_gap,
+        "estimated_minutes": estimate,
+        "results": {"sent": 0, "failed": 0, "errors": [],
+                    "daily_limit": daily_limit, "sent_today": sent_today},
+    })
 
 
 @leads_bp.route("/<int:lead_id>", methods=["DELETE"])

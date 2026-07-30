@@ -14,6 +14,9 @@ class Config:
     GHL_LOCATION_ID = os.getenv("GHL_LOCATION_ID", "")
     GHL_BASE_URL = os.getenv("GHL_BASE_URL", "https://rest.gohighlevel.com/v1")
     GHL_ACCESS_TOKEN = os.getenv("GHL_ACCESS_TOKEN", "")
+    # Leave unset in production — only overridden to point the SMS calls at a
+    # local stub gateway when verifying the end-to-end flow.
+    GHL_API_BASE_URL = os.getenv("GHL_API_BASE_URL", "")
 
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")

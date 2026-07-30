@@ -10,6 +10,12 @@ def start_scheduler(app):
     global _scheduler
     if _scheduler and _scheduler.running:
         return
+    # Only the process that owns the scheduler lock runs follow-ups, so a
+    # multi-worker gunicorn deploy cannot send each follow-up twice.
+    from services.smart_sender import _acquire_scheduler_lock
+    if not _acquire_scheduler_lock():
+        logger.info("Follow-up scheduler not started — another worker owns it")
+        return
     _scheduler = BackgroundScheduler(daemon=True)
     _scheduler.add_job(
         func=lambda: _run_followups(app),

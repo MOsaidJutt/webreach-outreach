@@ -6,7 +6,10 @@ Smart Send Scheduler
 - Runs as a background APScheduler job
 """
 import logging
+import os
 import random
+import socket
+import time
 from datetime import datetime, timedelta, date
 
 import pytz
@@ -14,6 +17,50 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 logger = logging.getLogger(__name__)
 _scheduler = None
+
+# Progress of a paced bulk run, read by the dashboard.
+_bulk_state = {"running": False, "sent": 0, "failed": 0, "total": 0,
+               "started_at": None, "next_at": None, "errors": [], "cancel": False}
+
+_lock_socket = None
+
+
+def _acquire_scheduler_lock() -> bool:
+    """
+    Let exactly one process own the background senders.
+
+    Deployment runs `gunicorn -w 2`, so create_app() executes in every worker.
+    Without this each worker started its own scheduler and its own copy of the
+    send timer, which double-sent messages and made the configured gap
+    meaningless. Binding a local port is an atomic, cross-platform claim that
+    is released automatically if the owning process dies.
+    """
+    global _lock_socket
+    if _lock_socket is not None:
+        return True
+
+    port = int(os.getenv("SCHEDULER_LOCK_PORT", "5199"))
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", port))
+        s.listen(1)
+        _lock_socket = s          # held for the life of the process
+        return True
+    except OSError:
+        s.close()
+        return False
+
+
+def get_bulk_state() -> dict:
+    state = dict(_bulk_state)
+    state["started_at"] = (state["started_at"].isoformat()
+                           if isinstance(state["started_at"], datetime) else state["started_at"])
+    state["errors"] = state["errors"][-10:]
+    return state
+
+
+def cancel_bulk():
+    _bulk_state["cancel"] = True
 
 # US State → timezone mapping
 STATE_TIMEZONE = {
@@ -206,9 +253,104 @@ def _send_one(app):
             logger.error(f"Smart sender: failed for lead {lead.id}: {e}")
 
 
+def send_bulk_paced(app, lead_ids, admin_password=None):
+    """
+    Send an initial SMS to each lead, spaced by the configured random gap and
+    held inside the sending window.
+
+    Runs in a background thread so the dashboard returns straight away. This
+    exists because "Send Bulk SMS" used to fire every message in one tight
+    loop — six messages landing in the same second, which is exactly what gets
+    an outreach number flagged.
+    """
+    with app.app_context():
+        from models import AppSettings, Lead, Conversation
+        from extensions import db
+        from services.conversation_ai import get_initial_message
+        from services.ghl_service import GHLService
+
+        min_gap = int(AppSettings.get("send_min_interval_mins", "3"))
+        max_gap = int(AppSettings.get("send_max_interval_mins", "12"))
+        if max_gap < min_gap:
+            min_gap, max_gap = max_gap, min_gap
+
+        _bulk_state.update({"running": True, "sent": 0, "failed": 0,
+                           "total": len(lead_ids), "started_at": datetime.utcnow(),
+                           "next_at": None, "errors": []})
+        logger.info(f"Paced bulk send starting: {len(lead_ids)} leads, gap {min_gap}-{max_gap} min")
+
+        try:
+            for index, lead_id in enumerate(lead_ids):
+                if _bulk_state.get("cancel"):
+                    logger.info("Paced bulk send cancelled")
+                    break
+
+                # Wait out the sending window rather than sending outside it.
+                waited = 0
+                while not _is_within_working_hours(app):
+                    if _bulk_state.get("cancel"):
+                        break
+                    if waited % 30 == 0:
+                        logger.info("Paced bulk send: outside sending window, waiting")
+                    time.sleep(60)
+                    waited += 1
+                if _bulk_state.get("cancel"):
+                    break
+
+                lead = db.session.get(Lead, lead_id)
+                if not lead or lead.status != "not_contacted" or not lead.ghl_contact_id:
+                    continue
+
+                try:
+                    lead.last_contacted_at = datetime.utcnow()
+                    lead.status = "message_sent"
+                    lead.conversation_step = 0
+                    lead.updated_at = datetime.utcnow()
+                    db.session.commit()
+
+                    ghl = GHLService()
+                    message = get_initial_message(lead)
+                    convo = ghl.get_or_create_conversation(lead.ghl_contact_id)
+                    convo_id = convo.get("id") or convo.get("conversationId")
+                    result = ghl.send_sms(lead.ghl_contact_id, message, convo_id)
+
+                    lead.ghl_conversation_id = convo_id
+                    db.session.add(Conversation(
+                        lead_id=lead.id, direction="outbound", message=message,
+                        step=0, status="sent", ghl_message_id=result.get("messageId", ""),
+                    ))
+                    db.session.commit()
+                    _bulk_state["sent"] += 1
+                    logger.info(f"Paced bulk send: {lead.business_name} "
+                                f"({_bulk_state['sent']}/{len(lead_ids)})")
+                except Exception as e:
+                    db.session.rollback()
+                    _bulk_state["failed"] += 1
+                    _bulk_state["errors"].append(f"{lead_id}: {e}")
+                    logger.error(f"Paced bulk send failed for lead {lead_id}: {e}")
+
+                if index < len(lead_ids) - 1:
+                    gap = random.uniform(min_gap, max_gap)
+                    _bulk_state["next_at"] = (
+                        datetime.utcnow() + timedelta(minutes=gap)
+                    ).isoformat()
+                    logger.info(f"Paced bulk send: next message in {gap:.1f} min")
+                    slept = 0.0
+                    while slept < gap * 60 and not _bulk_state.get("cancel"):
+                        time.sleep(min(5, gap * 60 - slept))
+                        slept += 5
+        finally:
+            _bulk_state.update({"running": False, "next_at": None, "cancel": False})
+            logger.info(f"Paced bulk send finished: {_bulk_state['sent']} sent, "
+                        f"{_bulk_state['failed']} failed")
+
+
 def start_smart_scheduler(app):
     global _scheduler
     if _scheduler and _scheduler.running:
+        return
+    if not _acquire_scheduler_lock():
+        logger.info("Smart send scheduler not started — another worker owns it")
         return
 
     _scheduler = BackgroundScheduler(daemon=True)
