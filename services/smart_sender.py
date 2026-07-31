@@ -51,6 +51,182 @@ def _acquire_scheduler_lock() -> bool:
         return False
 
 
+# When the next queued outreach SMS is allowed to go out. Lives in the
+# scheduler-owning process, which is the only one that drains the queue.
+_next_send_at = None
+
+
+def queue_leads_for_send(lead_ids, kind: str = "initial") -> int:
+    """
+    Mark leads to receive an outreach SMS, paced.
+
+    Every outreach path funnels through here — the dashboard's bulk button, the
+    Leads page's "SMS selected", a single lead's Send button, and the follow-up
+    scheduler. Nothing sends inline any more, so no amount of clicking or
+    looping can put two messages out in the same second.
+
+    `kind` only controls which leads are eligible to be queued. What actually
+    gets sent is decided at drain time from the lead's status, so the queue
+    needs no extra column to tell the two apart.
+
+    Returns the number newly queued.
+    """
+    from models import Lead
+    from extensions import db
+    from sqlalchemy import select
+
+    if not lead_ids:
+        return 0
+
+    now = datetime.utcnow()
+    leads = db.session.execute(
+        select(Lead).where(Lead.id.in_(list(lead_ids)))
+    ).scalars().all()
+
+    queued = 0
+    for lead in leads:
+        if not lead.ghl_contact_id:
+            continue
+        if lead.send_queued_at is not None:
+            continue                       # already waiting its turn
+        if kind == "initial" and lead.status != "not_contacted":
+            continue
+        if kind == "followup" and lead.status != "message_sent":
+            continue
+        lead.send_queued_at = now
+        queued += 1
+
+    db.session.commit()
+    logger.info(f"Queued {queued} lead(s) for paced outreach ({kind})")
+    return queued
+
+
+def get_queue_state(app=None) -> dict:
+    """Queue depth and when the next message is due, for the dashboard."""
+    from models import Lead, AppSettings
+    from extensions import db
+    from sqlalchemy import select, func
+
+    pending = db.session.scalar(
+        select(func.count(Lead.id)).where(Lead.send_queued_at.isnot(None))
+    ) or 0
+
+    min_gap = int(AppSettings.get("send_min_interval_mins", "3"))
+    max_gap = int(AppSettings.get("send_max_interval_mins", "12"))
+    average = (min_gap + max_gap) / 2
+
+    return {
+        "pending": pending,
+        "next_at": _next_send_at.isoformat() if _next_send_at else None,
+        "min_gap_mins": min_gap,
+        "max_gap_mins": max_gap,
+        "estimated_minutes": int(max(0, pending - 1) * average),
+        "sent": _bulk_state.get("sent", 0),
+        "failed": _bulk_state.get("failed", 0),
+        "errors": _bulk_state.get("errors", [])[-5:],
+    }
+
+
+def clear_send_queue() -> int:
+    """Unqueue everything still waiting."""
+    from models import Lead
+    from extensions import db
+    from sqlalchemy import select
+
+    leads = db.session.execute(
+        select(Lead).where(Lead.send_queued_at.isnot(None))
+    ).scalars().all()
+    for lead in leads:
+        lead.send_queued_at = None
+    db.session.commit()
+    logger.info(f"Cleared {len(leads)} lead(s) from the send queue")
+    return len(leads)
+
+
+def _drain_send_queue(app):
+    """
+    Send at most ONE queued opening SMS per call, and only once the random gap
+    since the previous one has elapsed. Runs on a short timer in the single
+    process that owns the scheduler lock.
+    """
+    global _next_send_at
+
+    with app.app_context():
+        from models import AppSettings, Lead, Conversation
+        from extensions import db
+        from sqlalchemy import select
+        from services.conversation_ai import get_initial_message, get_followup_message
+        from services.ghl_service import GHLService
+
+        lead = db.session.execute(
+            select(Lead).where(Lead.send_queued_at.isnot(None))
+            .order_by(Lead.send_queued_at.asc()).limit(1)
+        ).scalar_one_or_none()
+        if not lead:
+            return
+
+        now = datetime.utcnow()
+        if _next_send_at and now < _next_send_at:
+            return                                   # still inside the gap
+
+        if not _is_within_working_hours(app):
+            return                                   # outside sending hours
+
+        today_limit = _get_todays_limit(app)
+        if _count_sent_today(app) >= today_limit:
+            logger.info(f"Send queue paused: daily limit of {today_limit} reached")
+            return
+
+        # A lead still on "not_contacted" is due its opening message; anything
+        # else in the queue was put there by the follow-up scheduler.
+        is_followup = lead.status != "not_contacted"
+
+        # Claim the lead before the network call so a crash cannot resend it.
+        lead.send_queued_at = None
+        lead.last_contacted_at = now
+        lead.updated_at = now
+        if is_followup:
+            message = get_followup_message(lead)
+            lead.followup_count = (lead.followup_count or 0) + 1
+            lead.last_followup_at = now
+        else:
+            message = get_initial_message(lead)
+            lead.status = "message_sent"
+            lead.conversation_step = 0
+        db.session.commit()
+
+        try:
+            ghl = GHLService()
+            convo_id = lead.ghl_conversation_id
+            if not convo_id:
+                convo = ghl.get_or_create_conversation(lead.ghl_contact_id)
+                convo_id = convo.get("id") or convo.get("conversationId")
+            result = ghl.send_sms(lead.ghl_contact_id, message, convo_id)
+
+            lead.ghl_conversation_id = convo_id
+            db.session.add(Conversation(
+                lead_id=lead.id, direction="outbound", message=message,
+                step=lead.conversation_step, status="sent",
+                ghl_message_id=result.get("messageId", ""),
+            ))
+            db.session.commit()
+            _bulk_state["sent"] = _bulk_state.get("sent", 0) + 1
+            logger.info(f"Paced {'follow-up' if is_followup else 'send'} -> {lead.business_name}")
+        except Exception as e:
+            db.session.rollback()
+            _bulk_state["failed"] = _bulk_state.get("failed", 0) + 1
+            _bulk_state.setdefault("errors", []).append(f"{lead.business_name}: {e}")
+            logger.error(f"Paced send failed for lead {lead.id}: {e}")
+
+        min_gap = int(AppSettings.get("send_min_interval_mins", "3"))
+        max_gap = int(AppSettings.get("send_max_interval_mins", "12"))
+        if max_gap < min_gap:
+            min_gap, max_gap = max_gap, min_gap
+        gap = random.uniform(min_gap, max_gap)
+        _next_send_at = datetime.utcnow() + timedelta(minutes=gap)
+        logger.info(f"Next queued message in {gap:.1f} min (at {_next_send_at:%H:%M:%S} UTC)")
+
+
 def get_bulk_state() -> dict:
     state = dict(_bulk_state)
     state["started_at"] = (state["started_at"].isoformat()
@@ -253,96 +429,9 @@ def _send_one(app):
             logger.error(f"Smart sender: failed for lead {lead.id}: {e}")
 
 
-def send_bulk_paced(app, lead_ids, admin_password=None):
-    """
-    Send an initial SMS to each lead, spaced by the configured random gap and
-    held inside the sending window.
-
-    Runs in a background thread so the dashboard returns straight away. This
-    exists because "Send Bulk SMS" used to fire every message in one tight
-    loop — six messages landing in the same second, which is exactly what gets
-    an outreach number flagged.
-    """
-    with app.app_context():
-        from models import AppSettings, Lead, Conversation
-        from extensions import db
-        from services.conversation_ai import get_initial_message
-        from services.ghl_service import GHLService
-
-        min_gap = int(AppSettings.get("send_min_interval_mins", "3"))
-        max_gap = int(AppSettings.get("send_max_interval_mins", "12"))
-        if max_gap < min_gap:
-            min_gap, max_gap = max_gap, min_gap
-
-        _bulk_state.update({"running": True, "sent": 0, "failed": 0,
-                           "total": len(lead_ids), "started_at": datetime.utcnow(),
-                           "next_at": None, "errors": []})
-        logger.info(f"Paced bulk send starting: {len(lead_ids)} leads, gap {min_gap}-{max_gap} min")
-
-        try:
-            for index, lead_id in enumerate(lead_ids):
-                if _bulk_state.get("cancel"):
-                    logger.info("Paced bulk send cancelled")
-                    break
-
-                # Wait out the sending window rather than sending outside it.
-                waited = 0
-                while not _is_within_working_hours(app):
-                    if _bulk_state.get("cancel"):
-                        break
-                    if waited % 30 == 0:
-                        logger.info("Paced bulk send: outside sending window, waiting")
-                    time.sleep(60)
-                    waited += 1
-                if _bulk_state.get("cancel"):
-                    break
-
-                lead = db.session.get(Lead, lead_id)
-                if not lead or lead.status != "not_contacted" or not lead.ghl_contact_id:
-                    continue
-
-                try:
-                    lead.last_contacted_at = datetime.utcnow()
-                    lead.status = "message_sent"
-                    lead.conversation_step = 0
-                    lead.updated_at = datetime.utcnow()
-                    db.session.commit()
-
-                    ghl = GHLService()
-                    message = get_initial_message(lead)
-                    convo = ghl.get_or_create_conversation(lead.ghl_contact_id)
-                    convo_id = convo.get("id") or convo.get("conversationId")
-                    result = ghl.send_sms(lead.ghl_contact_id, message, convo_id)
-
-                    lead.ghl_conversation_id = convo_id
-                    db.session.add(Conversation(
-                        lead_id=lead.id, direction="outbound", message=message,
-                        step=0, status="sent", ghl_message_id=result.get("messageId", ""),
-                    ))
-                    db.session.commit()
-                    _bulk_state["sent"] += 1
-                    logger.info(f"Paced bulk send: {lead.business_name} "
-                                f"({_bulk_state['sent']}/{len(lead_ids)})")
-                except Exception as e:
-                    db.session.rollback()
-                    _bulk_state["failed"] += 1
-                    _bulk_state["errors"].append(f"{lead_id}: {e}")
-                    logger.error(f"Paced bulk send failed for lead {lead_id}: {e}")
-
-                if index < len(lead_ids) - 1:
-                    gap = random.uniform(min_gap, max_gap)
-                    _bulk_state["next_at"] = (
-                        datetime.utcnow() + timedelta(minutes=gap)
-                    ).isoformat()
-                    logger.info(f"Paced bulk send: next message in {gap:.1f} min")
-                    slept = 0.0
-                    while slept < gap * 60 and not _bulk_state.get("cancel"):
-                        time.sleep(min(5, gap * 60 - slept))
-                        slept += 5
-        finally:
-            _bulk_state.update({"running": False, "next_at": None, "cancel": False})
-            logger.info(f"Paced bulk send finished: {_bulk_state['sent']} sent, "
-                        f"{_bulk_state['failed']} failed")
+# send_bulk_paced() lived here. It has been removed: the database-backed
+# queue drained by _drain_send_queue() is now the single path for outreach
+# sends, so there is no second implementation to fall out of step with it.
 
 
 def start_smart_scheduler(app):
@@ -363,8 +452,18 @@ def start_smart_scheduler(app):
         id="smart_send_job",
         replace_existing=True,
     )
+    # Drain the queued-outreach list. Runs on a shorter tick so the first
+    # message of a batch goes out promptly; the gap between messages is
+    # enforced by _next_send_at, not by this interval.
+    _scheduler.add_job(
+        func=lambda: _drain_send_queue(app),
+        trigger="interval",
+        seconds=20,
+        id="send_queue_job",
+        replace_existing=True,
+    )
     _scheduler.start()
-    logger.info("Smart send scheduler started")
+    logger.info("Smart send scheduler started (queue drain every 20s)")
 
 
 # Track last send time

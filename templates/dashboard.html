@@ -329,17 +329,18 @@ async function pollBulkProgress() {
   bulkPollTimer = setInterval(async () => {
     try {
       const s = await api("GET", "/api/leads/bulk-send-status");
-      if (!s.running && !s.total) { bar.style.display = "none"; clearInterval(bulkPollTimer); return; }
+      if (!s.pending && !s.sent) { bar.style.display = "none"; clearInterval(bulkPollTimer); return; }
       bar.style.display = "";
-      const next = s.next_at ? new Date(s.next_at + "Z").toLocaleTimeString() : "—";
-      bar.innerHTML = s.running
-        ? `<i class="bi bi-hourglass-split me-1"></i> Sending ${s.sent}/${s.total}`
-          + (s.failed ? ` · ${s.failed} failed` : "")
+      const next = s.next_at ? new Date(s.next_at + "Z").toLocaleTimeString() : "shortly";
+      bar.innerHTML = s.pending
+        ? `<i class="bi bi-hourglass-split me-1"></i> <strong>${s.pending}</strong> message(s) queued`
+          + ` · ${s.sent} sent` + (s.failed ? ` · ${s.failed} failed` : "")
           + ` · next at ${next}`
+          + ` · ${s.min_gap_mins}-${s.max_gap_mins} min apart`
           + ` <button class="btn btn-sm btn-outline-danger ms-2" onclick="cancelBulk()">Stop</button>`
-        : `<i class="bi bi-check-circle me-1"></i> Bulk send finished — ${s.sent} sent`
+        : `<i class="bi bi-check-circle me-1"></i> Queue empty — ${s.sent} sent`
           + (s.failed ? `, ${s.failed} failed` : "");
-      if (!s.running) { clearInterval(bulkPollTimer); loadDashboard(); }
+      if (!s.pending) { clearInterval(bulkPollTimer); loadDashboard(); }
     } catch (e) { clearInterval(bulkPollTimer); }
   }, 5000);
 }

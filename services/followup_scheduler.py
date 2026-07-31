@@ -67,32 +67,13 @@ def _run_followups(app):
             if not due:
                 return
 
-            ghl = GHLService()
-            sent = 0
-            for lead in due:
-                try:
-                    message = get_followup_message(lead)
-                    convo_id = lead.ghl_conversation_id
-                    result = ghl.send_sms(lead.ghl_contact_id, message, convo_id)
-
-                    lead.followup_count = (lead.followup_count or 0) + 1
-                    lead.last_contacted_at = datetime.utcnow()
-                    lead.updated_at = datetime.utcnow()
-
-                    db.session.add(Conversation(
-                        lead_id=lead.id,
-                        direction="outbound",
-                        message=message,
-                        step=lead.conversation_step,
-                        status="sent",
-                        ghl_message_id=result.get("messageId", ""),
-                    ))
-                    sent += 1
-                except Exception as e:
-                    logger.error(f"Follow-up failed for lead {lead.id}: {e}")
-
-            db.session.commit()
-            logger.info(f"Follow-up run complete: {sent}/{len(due)} sent")
+            # Queue rather than send. This loop used to call send_sms for every
+            # due lead back to back, so a batch of follow-ups all landed within
+            # the same second — the same fault the initial send had. The paced
+            # queue releases them one at a time inside the sending window.
+            from services.smart_sender import queue_leads_for_send
+            queued = queue_leads_for_send([l.id for l in due], kind="followup")
+            logger.info(f"Follow-up run complete: {queued}/{len(due)} queued for paced sending")
 
         except Exception as e:
             logger.exception(f"Follow-up scheduler error: {e}")

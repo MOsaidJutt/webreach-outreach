@@ -251,6 +251,12 @@ class Lead(db.Model):
     last_followup_at = db.Column(db.DateTime)
     ai_paused = db.Column(db.Boolean, default=False)
 
+    # Set when a lead is queued for its opening SMS. The send queue lives in
+    # the database rather than in memory so that it survives a restart and is
+    # shared across gunicorn workers — an in-process queue was per-worker, and
+    # every UI path that looped over leads bypassed pacing entirely.
+    send_queued_at = db.Column(db.DateTime, index=True)
+
     website_url_sent = db.Column(db.String(500))
     website_sent_at = db.Column(db.DateTime)
     notes = db.Column(db.Text)
@@ -311,6 +317,8 @@ class Lead(db.Model):
             "conversation_step": self.conversation_step,
             "followup_count": self.followup_count,
             "ai_paused": bool(self.ai_paused),
+            "send_queued": self.send_queued_at is not None,
+            "send_queued_at": self.send_queued_at.isoformat() if self.send_queued_at else None,
             "website_url_sent": self.website_url_sent,
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
