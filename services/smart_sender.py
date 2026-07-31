@@ -51,9 +51,57 @@ def _acquire_scheduler_lock() -> bool:
         return False
 
 
-# When the next queued outreach SMS is allowed to go out. Lives in the
-# scheduler-owning process, which is the only one that drains the queue.
-_next_send_at = None
+# Queue bookkeeping is written to AppSettings rather than kept in module
+# globals. Only one gunicorn worker owns the scheduler, so a status request
+# served by the other worker saw empty globals and could report neither when
+# the next message was due nor why nothing was moving.
+QUEUE_TICK_KEY = "queue_last_tick"          # heartbeat: the drain job is alive
+QUEUE_NEXT_KEY = "queue_next_send_at"       # when the gap expires
+QUEUE_SENT_KEY = "queue_sent_count"
+QUEUE_FAIL_KEY = "queue_failed_count"
+
+
+def _now_iso():
+    return datetime.utcnow().isoformat()
+
+
+def _get_dt(key):
+    from models import AppSettings
+    raw = AppSettings.get(key, "")
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw)
+    except Exception:
+        return None
+
+
+def _bump(key):
+    from models import AppSettings
+    try:
+        AppSettings.set(key, str(int(AppSettings.get(key, "0") or 0) + 1))
+    except Exception:
+        pass
+
+
+def _window_bounds(app):
+    """(within_window, opens_at_local, now_local, tz_name) for the send window."""
+    from models import AppSettings
+    tz_name = AppSettings.get("send_timezone", "America/New_York")
+    start_time = AppSettings.get("send_start_time", "07:00")
+    end_time = AppSettings.get("send_end_time", "18:00")
+    try:
+        tz = pytz.timezone(tz_name)
+        now = datetime.now(tz)
+        s_h, s_m = map(int, start_time.split(":"))
+        e_h, e_m = map(int, end_time.split(":"))
+        start = now.replace(hour=s_h, minute=s_m, second=0, microsecond=0)
+        end = now.replace(hour=e_h, minute=e_m, second=0, microsecond=0)
+        within = start <= now <= end
+        opens = start if now < start else start + timedelta(days=1)
+        return within, (now if within else opens), now, tz_name
+    except Exception:
+        return True, None, None, tz_name
 
 
 def queue_leads_for_send(lead_ids, kind: str = "initial") -> int:
@@ -102,10 +150,17 @@ def queue_leads_for_send(lead_ids, kind: str = "initial") -> int:
 
 
 def get_queue_state(app=None) -> dict:
-    """Queue depth and when the next message is due, for the dashboard."""
+    """
+    Queue depth, when the next message is due, and — when nothing is moving —
+    the reason why. A silent stalled queue is indistinguishable from a broken
+    one, which is exactly how an hour gets lost.
+    """
     from models import Lead, AppSettings
     from extensions import db
     from sqlalchemy import select, func
+    from flask import current_app
+
+    app = app or current_app._get_current_object()
 
     pending = db.session.scalar(
         select(func.count(Lead.id)).where(Lead.send_queued_at.isnot(None))
@@ -115,16 +170,72 @@ def get_queue_state(app=None) -> dict:
     max_gap = int(AppSettings.get("send_max_interval_mins", "12"))
     average = (min_gap + max_gap) / 2
 
+    last_tick = _get_dt(QUEUE_TICK_KEY)
+    next_at = _get_dt(QUEUE_NEXT_KEY)
+    now = datetime.utcnow()
+
+    # The drain job ticks every 20s. No tick for two minutes means no process
+    # is running it — the single most important thing to surface.
+    scheduler_alive = bool(last_tick and (now - last_tick).total_seconds() < 120)
+
+    within_window, opens_at, now_local, tz_name = _window_bounds(app)
+    today_limit = _get_todays_limit(app)
+    sent_today = _count_sent_today(app)
+    limit_reached = sent_today >= today_limit
+
+    blocked_reason = None
+    if pending:
+        if not scheduler_alive:
+            blocked_reason = ("The background sender is not running, so the queue is stuck. "
+                              "Restart the app on the server (systemctl restart webreach).")
+        elif limit_reached:
+            blocked_reason = (f"Daily limit reached ({sent_today}/{today_limit}). "
+                              "Sending resumes tomorrow, or raise the limit in Admin.")
+        elif not within_window:
+            when = opens_at.strftime("%H:%M on %d %b") if opens_at else "the next window"
+            blocked_reason = (f"Outside your sending hours "
+                              f"({AppSettings.get('send_start_time', '07:00')}"
+                              f"–{AppSettings.get('send_end_time', '18:00')} {tz_name}). "
+                              f"Sending resumes at {when} local time.")
+        elif next_at and now < next_at:
+            secs = int((next_at - now).total_seconds())
+            blocked_reason = f"Waiting {secs // 60}m {secs % 60}s for the gap before the next message."
+
     return {
         "pending": pending,
-        "next_at": _next_send_at.isoformat() if _next_send_at else None,
+        "next_at": next_at.isoformat() if next_at else None,
         "min_gap_mins": min_gap,
         "max_gap_mins": max_gap,
         "estimated_minutes": int(max(0, pending - 1) * average),
-        "sent": _bulk_state.get("sent", 0),
-        "failed": _bulk_state.get("failed", 0),
+        "sent": int(AppSettings.get(QUEUE_SENT_KEY, "0") or 0),
+        "failed": int(AppSettings.get(QUEUE_FAIL_KEY, "0") or 0),
         "errors": _bulk_state.get("errors", [])[-5:],
+        "scheduler_alive": scheduler_alive,
+        "last_tick_at": last_tick.isoformat() if last_tick else None,
+        "within_window": within_window,
+        "window_opens_at": opens_at.isoformat() if opens_at else None,
+        "server_time_local": now_local.strftime("%H:%M") if now_local else None,
+        "timezone": tz_name,
+        "daily_limit": today_limit,
+        "sent_today": sent_today,
+        "blocked_reason": blocked_reason,
     }
+
+
+def send_next_now(app=None) -> dict:
+    """
+    Force the next queued message out immediately, ignoring the gap and the
+    sending window. Used by the Send now button for testing.
+    """
+    global _next_send_at
+    from models import AppSettings
+    from flask import current_app
+
+    app = app or current_app._get_current_object()
+    _next_send_at = None
+    AppSettings.set(QUEUE_NEXT_KEY, "")
+    _drain_send_queue(app, ignore_window=True)
+    return get_queue_state(app)
 
 
 def clear_send_queue() -> int:
@@ -143,7 +254,7 @@ def clear_send_queue() -> int:
     return len(leads)
 
 
-def _drain_send_queue(app):
+def _drain_send_queue(app, ignore_window: bool = False):
     """
     Send at most ONE queued opening SMS per call, and only once the random gap
     since the previous one has elapsed. Runs on a short timer in the single
@@ -158,6 +269,13 @@ def _drain_send_queue(app):
         from services.conversation_ai import get_initial_message, get_followup_message
         from services.ghl_service import GHLService
 
+        # Heartbeat first, and unconditionally: the dashboard uses it to tell
+        # "waiting its turn" apart from "nothing is running at all".
+        try:
+            AppSettings.set(QUEUE_TICK_KEY, _now_iso())
+        except Exception:
+            pass
+
         lead = db.session.execute(
             select(Lead).where(Lead.send_queued_at.isnot(None))
             .order_by(Lead.send_queued_at.asc()).limit(1)
@@ -166,10 +284,12 @@ def _drain_send_queue(app):
             return
 
         now = datetime.utcnow()
-        if _next_send_at and now < _next_send_at:
+        stored_next = _get_dt(QUEUE_NEXT_KEY)
+        next_due = _next_send_at or stored_next
+        if next_due and now < next_due and not ignore_window:
             return                                   # still inside the gap
 
-        if not _is_within_working_hours(app):
+        if not ignore_window and not _is_within_working_hours(app):
             return                                   # outside sending hours
 
         today_limit = _get_todays_limit(app)
@@ -211,11 +331,13 @@ def _drain_send_queue(app):
             ))
             db.session.commit()
             _bulk_state["sent"] = _bulk_state.get("sent", 0) + 1
+            _bump(QUEUE_SENT_KEY)
             logger.info(f"Paced {'follow-up' if is_followup else 'send'} -> {lead.business_name}")
         except Exception as e:
             db.session.rollback()
             _bulk_state["failed"] = _bulk_state.get("failed", 0) + 1
             _bulk_state.setdefault("errors", []).append(f"{lead.business_name}: {e}")
+            _bump(QUEUE_FAIL_KEY)
             logger.error(f"Paced send failed for lead {lead.id}: {e}")
 
         min_gap = int(AppSettings.get("send_min_interval_mins", "3"))
@@ -224,7 +346,42 @@ def _drain_send_queue(app):
             min_gap, max_gap = max_gap, min_gap
         gap = random.uniform(min_gap, max_gap)
         _next_send_at = datetime.utcnow() + timedelta(minutes=gap)
+        try:
+            AppSettings.set(QUEUE_NEXT_KEY, _next_send_at.isoformat())
+        except Exception:
+            pass
         logger.info(f"Next queued message in {gap:.1f} min (at {_next_send_at:%H:%M:%S} UTC)")
+
+
+_retry_thread = None
+
+
+def _retry_lock_later(app, interval: int = 60):
+    """
+    Poll for the scheduler lock in the background so a worker can take over if
+    the process that owned it goes away. Without this, losing the owning worker
+    left the send queue frozen until someone restarted the service by hand.
+    """
+    global _retry_thread
+    if _retry_thread and _retry_thread.is_alive():
+        return
+
+    import threading
+
+    def _loop():
+        while True:
+            time.sleep(interval)
+            if _scheduler and _scheduler.running:
+                return
+            if _acquire_scheduler_lock():
+                logger.info("Scheduler lock acquired on retry — taking over the queue")
+                start_smart_scheduler(app)
+                from services.followup_scheduler import start_scheduler
+                start_scheduler(app)
+                return
+
+    _retry_thread = threading.Thread(target=_loop, daemon=True)
+    _retry_thread.start()
 
 
 def get_bulk_state() -> dict:
@@ -439,7 +596,11 @@ def start_smart_scheduler(app):
     if _scheduler and _scheduler.running:
         return
     if not _acquire_scheduler_lock():
-        logger.info("Smart send scheduler not started — another worker owns it")
+        # Another worker owns it — but if that worker later dies, nothing would
+        # ever pick the schedulers back up and the queue would stall forever.
+        # Keep checking so the survivor takes over on its own.
+        logger.info("Smart send scheduler not started — another worker owns it; will retry")
+        _retry_lock_later(app)
         return
 
     _scheduler = BackgroundScheduler(daemon=True)

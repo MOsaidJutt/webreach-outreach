@@ -6,11 +6,12 @@ included in the diagnostics bundle, so "is the fix actually running on the
 server?" is a question that can be answered in one glance instead of guessed at.
 """
 
-BUILD = "2026-07-31.6"
+BUILD = "2026-07-31.7"
 
 # What this build contains, newest first. Keep it short — it is displayed
 # in the UI and pasted into support messages.
 CHANGES = [
+    "A stalled send queue now says WHY, and Send now forces one through",
     "Conversations page scrolls again - the lead list and message thread both",
     "Conversations page shows every lead and syncs threads from GHL",
     "Testing panel on Admin — Add Test Lead and Test Webhook are reachable at last",

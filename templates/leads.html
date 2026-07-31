@@ -246,15 +246,36 @@ async function pollSendQueue() {
     const s = await api("GET", "/api/leads/bulk-send-status");
     if (!s.pending) { bar.style.display = "none"; return; }
     const next = s.next_at ? new Date(s.next_at + "Z").toLocaleTimeString() : "shortly";
+
+    // A stalled queue must say why, not just show a number that never moves.
+    const stuck = s.blocked_reason && !s.within_window || !s.scheduler_alive;
+    bar.className = "alert py-2 px-3 small d-flex align-items-center gap-2 "
+                  + (stuck ? "alert-warning" : "alert-info");
     bar.style.display = "";
     bar.innerHTML =
-      `<i class="bi bi-hourglass-split"></i>`
-      + `<span><strong>${s.pending}</strong> message(s) queued, going out `
-      + `${s.min_gap_mins}-${s.max_gap_mins} minutes apart. Next at ${next}.`
-      + (s.sent ? ` ${s.sent} sent so far.` : "")
+      `<i class="bi bi-${s.scheduler_alive ? 'hourglass-split' : 'exclamation-triangle-fill'}"></i>`
+      + `<span><strong>${s.pending}</strong> message(s) queued`
+      + (s.sent ? ` · ${s.sent} sent` : "")
+      + (s.blocked_reason
+          ? `<br><span class="text-dark">${esc(s.blocked_reason)}</span>`
+          : ` · going out ${s.min_gap_mins}-${s.max_gap_mins} min apart · next at ${next}`)
+      + `<br><span class="text-muted" style="font-size:11px">`
+      + `Server time ${esc(s.server_time_local || '?')} ${esc(s.timezone || '')}`
+      + ` · sending hours apply · ${s.sent_today}/${s.daily_limit} sent today</span>`
       + `</span>`
-      + `<button class="btn btn-sm btn-outline-danger ms-auto" onclick="stopSendQueue()">Stop</button>`;
+      + `<button class="btn btn-sm btn-outline-primary ms-auto" onclick="sendNextNow()"`
+      + ` title="Send the next queued message immediately, ignoring the gap and hours">Send now</button>`
+      + `<button class="btn btn-sm btn-outline-danger" onclick="stopSendQueue()">Stop</button>`;
   } catch (e) { bar.style.display = "none"; }
+}
+
+async function sendNextNow() {
+  try {
+    const d = await api("POST", "/api/leads/send-next-now");
+    showToast(d.message);
+    pollSendQueue();
+    loadLeads(currentPage);
+  } catch (e) { showToast(e.message, "error"); }
 }
 
 async function stopSendQueue() {

@@ -413,6 +413,32 @@ def bulk_send_status():
     return jsonify(state)
 
 
+@leads_bp.route("/send-next-now", methods=["POST"])
+@require_admin_password
+def send_next_now_route():
+    """Force the next queued message out, ignoring the gap and sending window."""
+    from flask import current_app
+    from services.smart_sender import send_next_now, get_queue_state
+
+    before = get_queue_state()
+    if not before["pending"]:
+        return jsonify({"message": "Nothing is queued.", "queue": before})
+
+    # Deliberately works even when the background sender is down: forcing one
+    # message through is the quickest way to tell a stalled scheduler apart
+    # from a broken GHL connection.
+    state = send_next_now(current_app._get_current_object())
+    sent = before["pending"] - state["pending"]
+    warning = ("" if before["scheduler_alive"] else
+               " Note: the background sender is not running, so the rest of the queue "
+               "will not move until the app is restarted on the server.")
+    return jsonify({
+        "message": ((f"Sent 1 message now. {state['pending']} still queued." + warning)
+                    if sent else "Could not send — see the queue status for why."),
+        "queue": state,
+    })
+
+
 @leads_bp.route("/bulk-send-cancel", methods=["POST"])
 @require_admin_password
 def bulk_send_cancel():
