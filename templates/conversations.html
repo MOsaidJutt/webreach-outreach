@@ -3,10 +3,49 @@
 {% block page_title %}Conversations{% endblock %}
 
 {% block content %}
-<div class="row g-0" style="height: calc(100vh - 140px); border-radius:12px; overflow:hidden; box-shadow:0 1px 8px rgba(0,0,0,.08);">
+<style>
+  .conv-shell {
+    height: calc(100vh - 140px);
+    min-height: 540px;              /* never collapse to nothing on a short window */
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 8px rgba(0,0,0,.08);
+    /* Bootstrap's .row is a WRAPPING flex container, so its single flex line
+       takes its height from the tallest item rather than from this fixed
+       height. The columns therefore grew to fit all their content and were
+       simply clipped -- no scrollbar appeared anywhere on the page. Turning
+       wrapping off makes align-items:stretch size them to the shell instead. */
+    flex-wrap: nowrap;
+  }
+  /* height:100% pins the columns to the shell; min-height:0 then allows the
+     inner lists to shrink below their content so overflow-auto engages. */
+  .conv-list-col   { min-width: 320px; height: 100%; min-height: 0; }
+  .conv-thread-col { height: 100%; min-height: 0; overflow: hidden; }
+
+  #convList  { overscroll-behavior: contain; }
+  /* The message area must keep a usable height however tall the header,
+     compose box and status bar around it end up being. */
+  #msgThread { min-height: 220px; overscroll-behavior: contain; }
+
+  /* The filter row wraps to several lines and was eating the list's height. */
+  .conv-filters { max-height: 4.6rem; overflow-y: auto; }
+
+  /* Below lg the columns stack, and a fixed viewport height would clip
+     everything with no way to reach it. Let the page scroll normally instead. */
+  @media (max-width: 991.98px) {
+    .conv-shell      { height: auto; min-height: 0; overflow: visible; flex-wrap: wrap; }
+    .conv-list-col   { height: 65vh; }
+    /* Let the thread grow and the page scroll, rather than squeezing the
+       messages into whatever is left after the surrounding controls. */
+    .conv-thread-col { height: auto; min-height: 70vh; overflow: visible; }
+    #msgThread       { min-height: 50vh; }
+  }
+</style>
+
+<div class="row g-0 conv-shell">
 
   <!-- Left: Conversation list -->
-  <div class="col-lg-4 border-end bg-white d-flex flex-column" style="min-width:320px;">
+  <div class="col-lg-4 conv-list-col border-end bg-white d-flex flex-column">
 
     <!-- Search + filter -->
     <div class="p-3 border-bottom flex-shrink-0">
@@ -14,7 +53,7 @@
         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
         <input type="text" class="form-control border-start-0" id="convSearch" placeholder="Search conversations..." oninput="filterList()" />
       </div>
-      <div class="d-flex gap-1 flex-wrap">
+      <div class="d-flex gap-1 flex-wrap conv-filters">
         <button class="btn btn-xs btn-primary active-filter" onclick="setFilter('all', this)">All leads</button>
         <button class="btn btn-xs btn-outline-secondary" onclick="setFilter('with_messages', this)">Has messages</button>
         <button class="btn btn-xs btn-outline-secondary" onclick="setFilter('replied', this)">Replied</button>
@@ -47,7 +86,7 @@
   </div>
 
   <!-- Right: Message thread -->
-  <div class="col bg-white d-flex flex-column" id="threadPanel" style="min-height:0; overflow:hidden;">
+  <div class="col conv-thread-col bg-white d-flex flex-column" id="threadPanel">
     <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
       <i class="bi bi-chat-dots fs-1 opacity-25 mb-2"></i>
       <p class="small">Select a conversation to view messages</p>
@@ -213,7 +252,7 @@ async function openThread(leadId) {
 
     <!-- Messages -->
     <div class="p-3 overflow-auto" id="msgThread"
-         style="background:#f8f9fa; flex:1 1 0; min-height:0;">
+         style="background:#f8f9fa; flex:1 1 0;">
       ${msgs.length ? msgs.map(m => renderMsg(m)).join('') : '<div class="text-center text-muted py-5">No messages yet</div>'}
     </div>
 
