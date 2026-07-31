@@ -258,7 +258,18 @@ def save_settings():
         if key in allowed:
             AppSettings.set(key, val)
             saved[key] = val
-    return jsonify({"message": "Settings saved", "saved": saved})
+
+    # Tell the operator straight away when a setting they just changed is
+    # overridden by, or has consequences for, another one.
+    warnings = []
+    try:
+        from services.settings_advice import advise
+        warnings = advise(saved)
+    except Exception as e:
+        logger = __import__("logging").getLogger(__name__)
+        logger.warning(f"Settings advice failed: {e}")
+
+    return jsonify({"message": "Settings saved", "saved": saved, "warnings": warnings})
 
 
 @admin_bp.route("/debug-ghl", methods=["GET"])

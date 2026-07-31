@@ -6,11 +6,12 @@ included in the diagnostics bundle, so "is the fix actually running on the
 server?" is a question that can be answered in one glance instead of guessed at.
 """
 
-BUILD = "2026-07-31.8"
+BUILD = "2026-07-31.9"
 
 # What this build contains, newest first. Keep it short — it is displayed
 # in the UI and pasted into support messages.
 CHANGES = [
+    "Settings now warn you when a change is overridden by another setting",
     "Daily limit counts outreach only - synced history and AI replies no longer eat it",
     "The limit now says whether it comes from warm-up or the manual field",
     "A stalled send queue now says WHY, and Send now forces one through",

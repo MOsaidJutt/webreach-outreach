@@ -73,6 +73,26 @@
 <!-- Toast Notifications -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
 
+<!-- Knock-on effects of a settings change. Shown whenever an API response
+     carries warnings, so a setting that is overridden by another one says so
+     at the moment it is saved rather than hours later. -->
+<div class="modal fade" id="adviceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-semibold" id="adviceTitle">
+          <i class="bi bi-info-circle-fill text-primary me-1"></i> Saved — but check this
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-1" id="adviceBody"></div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-sm btn-primary" data-bs-dismiss="modal">Got it</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Admin Password Modal -->
 <div class="modal fade" id="adminPwModal" tabindex="-1" aria-labelledby="adminPwModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-sm modal-dialog-centered">
@@ -195,11 +215,35 @@
       }
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || 'Request failed');
+      if (data && data.warnings && data.warnings.length) showAdvice(data.warnings);
       return data;
     } catch (e) {
       if (e.message === 'pw_cancelled') throw new Error('Action cancelled');
       throw e;
     }
+  }
+
+  // Surface the knock-on effects of a change. A "blocker" means the setting
+  // just saved will not do what it looks like it does.
+  function showAdvice(warnings) {
+    const esc = s => String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const blocking = warnings.some(w => w.level === 'blocker');
+
+    document.getElementById('adviceTitle').innerHTML = blocking
+      ? '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> Saved — but this will not take effect'
+      : '<i class="bi bi-info-circle-fill text-primary me-1"></i> Saved — worth knowing';
+
+    document.getElementById('adviceBody').innerHTML = warnings.map(w => `
+      <div class="alert ${w.level === 'blocker' ? 'alert-warning' : 'alert-secondary'} py-2 px-3 mb-2">
+        <div>${esc(w.message)}</div>
+        ${w.where ? `<div class="small mt-1">
+            <i class="bi bi-arrow-right-short"></i>
+            ${w.url ? `<a href="${esc(w.url)}">${esc(w.where)}</a>` : esc(w.where)}
+          </div>` : ''}
+      </div>`).join('');
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('adviceModal')).show();
   }
 
   // File upload helper — for multipart CSV imports
