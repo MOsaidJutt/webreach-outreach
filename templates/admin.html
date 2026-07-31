@@ -147,6 +147,55 @@
     </div>
   </div>
 
+  <!-- Testing — safe ways to exercise the system without texting a real business.
+       showAddLeadModal() and showTestModal() already existed but nothing in the
+       UI called them, so neither was reachable. -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm" style="border-left:4px solid #6f42c1 !important">
+      <div class="card-header bg-white border-0 fw-semibold pt-3">
+        <i class="bi bi-beaker me-1 text-primary"></i> Testing
+        <span class="badge bg-light text-dark ms-2">No real business is contacted</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <div class="border rounded p-3 h-100">
+              <div class="fw-semibold mb-1">1 · Check the wording</div>
+              <p class="small text-muted">Play out a whole conversation. Nothing is sent to anyone.</p>
+              <a href="/ai-chat" class="btn btn-sm btn-outline-primary w-100">
+                <i class="bi bi-chat-dots me-1"></i> Open AI Chat Test
+              </a>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="border rounded p-3 h-100">
+              <div class="fw-semibold mb-1">2 · Add your own number as a lead</div>
+              <p class="small text-muted">Creates a test lead so a real SMS goes to your phone, not a business.</p>
+              <button class="btn btn-sm btn-outline-primary w-100" onclick="showAddLeadModal()">
+                <i class="bi bi-person-plus me-1"></i> Add Test Lead
+              </button>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="border rounded p-3 h-100">
+              <div class="fw-semibold mb-1">3 · Simulate a reply</div>
+              <p class="small text-muted">Fires a fake inbound message at the webhook to check the AI answers.</p>
+              <button class="btn btn-sm btn-outline-primary w-100" onclick="showTestModal()">
+                <i class="bi bi-arrow-left-right me-1"></i> Test Webhook &rarr; AI
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="alert alert-secondary small mt-3 mb-0">
+          <strong>Full end-to-end test:</strong> Add Test Lead with your mobile &rarr;
+          <a href="/leads">Leads</a> &rarr; tick it &rarr; <em>Import Selected to GHL</em> &rarr;
+          <em>Send SMS to Selected</em>. You get the opening SMS on your phone; reply to it and
+          the AI should answer within seconds. Watch the outcome appear in Inbound Health above.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Daily Send Limit -->
   <div class="col-lg-6">
     <div class="card border-0 shadow-sm">
