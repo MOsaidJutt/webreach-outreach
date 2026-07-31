@@ -644,6 +644,35 @@ def _chapters(page, n, base_url, live_mode, stub):
     page.wait_for_timeout(2000)
     n.shot("07-conversations")
 
+    # ── Chapter 6b: the payload shape that actually took production down ──
+    n.card("6b - The exact payload GHL really sends", [
+        "GHL's standard data includes 'message' as an OBJECT, not a string.",
+        "The old code called .strip() on it, raised AttributeError,",
+        "and returned 500 to GHL for every single reply.",
+    ], seconds=5)
+
+    ghl_real = {
+        "contact_id": "ghl-contact-santafe",
+        "first_name": "Santa Fe Builders Llc",
+        "phone": "+15551110001",
+        "location": {"name": "AMZUS Ltd", "id": "f0IhTzGOf9o7ghh2AJS0"},
+        "workflow": {"name": "WebReach Inbound SMS"},
+        "contact": {"id": "ghl-contact-santafe", "phone": "+15551110001"},
+        "message": {"type": 1, "body": "Yes go ahead", "direction": "inbound",
+                    "conversationId": "conv-santafe-1"},
+        "customData": {"type": "InboundMessage", "messageType": "SMS",
+                       "message": "Yes go ahead", "contactId": "ghl-contact-santafe",
+                       "conversationId": "conv-santafe-1"},
+    }
+    n.say("Posting GHL's real payload, with 'message' as an object.", 3.0, tag="INBOUND")
+    r = requests.post(f"{base_url}/api/webhooks/ghl", json=ghl_real, timeout=30)
+    data = r.json() if r.content else {}
+    n.verdict("GHL's real payload no longer returns 500",
+              r.status_code == 200,
+              f"HTTP {r.status_code}, template={data.get('template')}")
+    n.verdict("The message body is read out of the nested object",
+              data.get("sent") is True, f"sent={data.get('sent')}")
+
     # ── Chapter 7: the deleted-contacts scenario ─────────────────────────
     n.card("7 — After deleting every GHL contact", [
         "The client wiped all GHL contacts and conversations to retest.",

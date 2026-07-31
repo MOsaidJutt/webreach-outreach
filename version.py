@@ -6,11 +6,13 @@ included in the diagnostics bundle, so "is the fix actually running on the
 server?" is a question that can be answered in one glance instead of guessed at.
 """
 
-BUILD = "2026-07-31.1"
+BUILD = "2026-07-31.2"
 
 # What this build contains, newest first. Keep it short — it is displayed
 # in the UI and pasted into support messages.
 CHANGES = [
+    "Root cause of the GHL 500s: message arrives as an object, not a string",
+    "Any webhook crash is now logged and shown in Inbound Health, never silent",
     "Quietened APScheduler's per-minute log spam so the log is readable",
     "Paced bulk sending — the Sending Window and min/max gap now apply to every send path",
     "Schedulers run in a single process, so multi-worker deploys cannot double-send",

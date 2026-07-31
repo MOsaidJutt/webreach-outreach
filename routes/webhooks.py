@@ -213,6 +213,32 @@ def _record(outcome, detail, *, contact_id="", phone="", message="",
 # The webhook
 # ------------------------------------------------------------------ #
 
+@webhooks_bp.errorhandler(Exception)
+def _webhook_crashed(exc):
+    """
+    Never let a webhook fail silently again.
+
+    An unhandled AttributeError here returned Flask's bare 500 page to GHL for
+    weeks. GHL retried, gave up, and marked the action failed — while the
+    dashboard showed nothing at all, because the crash happened before anything
+    was recorded. Now the traceback is logged and the failure is written to the
+    event log, so it shows up in Admin -> Inbound Health like any other outcome.
+    """
+    import traceback
+
+    tb = traceback.format_exc()
+    logger.error(f"Webhook handler crashed: {exc}\n{tb}")
+    try:
+        db.session.rollback()
+    except Exception:
+        pass
+    _record("error", f"Unhandled {type(exc).__name__}: {exc}",
+            raw_body=request.get_data() or b"")
+    # 500 so GHL retries — the message is not lost if this was transient.
+    return jsonify({"error": "Webhook handler failed",
+                    "detail": f"{type(exc).__name__}: {exc}"}), 500
+
+
 @webhooks_bp.route("/ghl", methods=["GET"])
 def ghl_webhook_probe():
     """
