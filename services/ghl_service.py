@@ -149,9 +149,31 @@ class GHLService:
             payload["conversationId"] = conversation_id
         return self._request("POST", "/conversations/messages", json=payload)
 
-    def get_conversation_messages(self, conversation_id: str) -> list:
-        data = self._request("GET", f"/conversations/{conversation_id}/messages")
-        return data.get("messages", {}).get("messages", [])
+    def find_conversation(self, contact_id: str) -> dict | None:
+        """
+        Look a conversation up without creating one.
+
+        get_or_create_conversation() creates an empty conversation as a side
+        effect, which is wrong when syncing history — it would manufacture
+        threads in GHL for leads that have never been messaged.
+        """
+        try:
+            data = self._request("GET", "/conversations/search",
+                                 params={"locationId": self.location_id,
+                                         "contactId": contact_id})
+            convos = data.get("conversations", [])
+            return convos[0] if convos else None
+        except Exception as e:
+            logger.warning(f"Conversation lookup failed for contact {contact_id}: {e}")
+            return None
+
+    def get_conversation_messages(self, conversation_id: str, limit: int = 100) -> list:
+        data = self._request("GET", f"/conversations/{conversation_id}/messages",
+                             params={"limit": limit})
+        messages = data.get("messages", {})
+        if isinstance(messages, dict):
+            return messages.get("messages", [])
+        return messages if isinstance(messages, list) else []
 
     # ------------------------------------------------------------------ #
     # Webhooks

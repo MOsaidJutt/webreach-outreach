@@ -16,6 +16,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 SENT_MESSAGES = []
 CONTACTS = {}
+# Message history served by GET /conversations/<id>/messages, for the sync tests.
+CONVERSATION_MESSAGES = {}
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -44,6 +46,11 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path.startswith("/conversations/search"):
             return self._json(200, {"conversations": [{"id": "stub-conversation"}]})
 
+        if "/messages" in self.path and self.path.startswith("/conversations/"):
+            convo = self.path.split("/conversations/", 1)[1].split("/messages")[0]
+            msgs = CONVERSATION_MESSAGES.get(convo, [])
+            return self._json(200, {"messages": {"messages": msgs}})
+
         return self._json(200, {})
 
     def do_POST(self):
@@ -60,6 +67,10 @@ class _Handler(BaseHTTPRequestHandler):
 
         if self.path.startswith("/_contact"):
             CONTACTS[data["id"]] = data
+            return self._json(200, {"ok": True})
+
+        if self.path.startswith("/_messages"):
+            CONVERSATION_MESSAGES[data["conversationId"]] = data["messages"]
             return self._json(200, {"ok": True})
 
         if self.path.startswith("/conversations/messages"):
@@ -96,6 +107,9 @@ class StubGHL:
 
     def register_contact(self, contact_id, phone, name=""):
         CONTACTS[contact_id] = {"id": contact_id, "phone": phone, "firstName": name}
+
+    def register_messages(self, conversation_id, messages):
+        CONVERSATION_MESSAGES[conversation_id] = messages
 
     @property
     def sent(self):

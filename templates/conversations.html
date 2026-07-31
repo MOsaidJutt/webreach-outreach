@@ -15,17 +15,34 @@
         <input type="text" class="form-control border-start-0" id="convSearch" placeholder="Search conversations..." oninput="filterList()" />
       </div>
       <div class="d-flex gap-1 flex-wrap">
-        <button class="btn btn-xs btn-primary active-filter" onclick="setFilter('all', this)">All</button>
+        <button class="btn btn-xs btn-primary active-filter" onclick="setFilter('all', this)">All leads</button>
+        <button class="btn btn-xs btn-outline-secondary" onclick="setFilter('with_messages', this)">Has messages</button>
         <button class="btn btn-xs btn-outline-secondary" onclick="setFilter('replied', this)">Replied</button>
         <button class="btn btn-xs btn-outline-warning" onclick="setFilter('interested', this)">Interested</button>
         <button class="btn btn-xs btn-outline-danger" onclick="setFilter('not_interested', this)">Not Interested</button>
+        <button class="btn btn-xs btn-outline-secondary" onclick="setFilter('not_contacted', this)">Not Contacted</button>
         <button class="btn btn-xs btn-outline-secondary" onclick="setFilter('manual', this)">Manual Mode</button>
       </div>
+      <div class="d-flex align-items-center gap-2 mt-2">
+        <span class="small text-muted" id="convTotal"></span>
+        <button class="btn btn-xs btn-outline-primary ms-auto" onclick="syncAllFromGHL()"
+                title="Pull recent message history from GHL for every linked lead">
+          <i class="bi bi-arrow-repeat"></i> Sync from GHL
+        </button>
+      </div>
+      <div class="small text-muted mt-1" id="syncStatus"></div>
     </div>
 
     <!-- List -->
     <div class="overflow-auto flex-grow-1" id="convList">
       <div class="text-center text-muted py-5 small">Loading...</div>
+    </div>
+
+    <!-- Paging: every lead is reachable, not just the first page -->
+    <div class="p-2 border-top d-flex align-items-center justify-content-between flex-shrink-0">
+      <button class="btn btn-xs btn-outline-secondary" id="convPrev" onclick="changePage(-1)">&larr; Prev</button>
+      <span class="small text-muted" id="convPageInfo"></span>
+      <button class="btn btn-xs btn-outline-secondary" id="convNext" onclick="changePage(1)">Next &rarr;</button>
     </div>
   </div>
 
@@ -52,41 +69,69 @@ const STATUS_BADGE = {
   website_sent:'success', converted:'success',
 };
 
-window.addEventListener('DOMContentLoaded', loadConversations);
+let currentPage = 1;
+let totalPages = 1;
+let searchTimer = null;
 
+window.addEventListener('DOMContentLoaded', () => { loadConversations(); pollSync(); });
+
+// Filtering, searching and paging all happen on the server now. The page used
+// to pull 500 leads and hide every 'not_contacted' one, so most of the list
+// could never be reached.
 async function loadConversations() {
-  const data = await api('GET', '/api/leads/?per_page=500&sort_by=updated_at&sort_dir=desc');
-  allLeads = data.leads.filter(l => l.status !== 'not_contacted');
-  renderList();
+  const search = document.getElementById('convSearch').value.trim();
+  const params = new URLSearchParams({ page: currentPage, per_page: 100 });
+  if (search) params.set('search', search);
+  if (currentFilter === 'manual' || currentFilter === 'with_messages') {
+    params.set('only', currentFilter);
+  } else if (currentFilter !== 'all') {
+    params.set('status', currentFilter);
+  }
+
+  try {
+    const data = await api('GET', '/api/leads/conversation-list?' + params);
+    allLeads = data.leads;
+    totalPages = data.pages || 1;
+    document.getElementById('convTotal').textContent =
+      `${data.total} lead${data.total === 1 ? '' : 's'}`;
+    document.getElementById('convPageInfo').textContent =
+      `Page ${data.page} of ${totalPages}`;
+    document.getElementById('convPrev').disabled = data.page <= 1;
+    document.getElementById('convNext').disabled = data.page >= totalPages;
+    renderList();
+  } catch (e) {
+    document.getElementById('convList').innerHTML =
+      `<div class="text-center text-danger py-5 small">${esc(e.message)}</div>`;
+  }
+}
+
+function changePage(delta) {
+  const next = currentPage + delta;
+  if (next < 1 || next > totalPages) return;
+  currentPage = next;
+  loadConversations();
 }
 
 function setFilter(f, btn) {
   currentFilter = f;
+  currentPage = 1;
   document.querySelectorAll('.active-filter').forEach(b => {
     b.className = b.className.replace('btn-primary','btn-outline-secondary').replace(' active-filter','');
   });
   btn.className = btn.className.replace('btn-outline-secondary','btn-primary') + ' active-filter';
-  renderList();
+  loadConversations();
 }
 
-function filterList() { renderList(); }
+function filterList() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { currentPage = 1; loadConversations(); }, 300);
+}
 
 function renderList() {
-  const search = document.getElementById('convSearch').value.toLowerCase();
-  let leads = allLeads;
-  if (currentFilter === 'manual') {
-    leads = leads.filter(l => l.ai_paused);
-  } else if (currentFilter !== 'all') {
-    leads = leads.filter(l => l.status === currentFilter);
-  }
-  if (search) leads = leads.filter(l =>
-    (l.business_name||'').toLowerCase().includes(search) ||
-    (l.phone||'').includes(search)
-  );
-
+  const leads = allLeads;
   const el = document.getElementById('convList');
   if (!leads.length) {
-    el.innerHTML = '<div class="text-center text-muted py-5 small">No conversations found</div>';
+    el.innerHTML = '<div class="text-center text-muted py-5 small">No leads match this filter</div>';
     return;
   }
 
@@ -100,15 +145,24 @@ function renderList() {
           <span class="badge bg-${STATUS_BADGE[l.status]||'secondary'}" style="font-size:9px">${l.status.replace(/_/g,' ')}</span>
         </div>
       </div>
-      <div class="text-muted" style="font-size:11px">${l.phone||'No phone'} · ${l.city||''}</div>
-      <div class="text-muted text-truncate" style="font-size:11px; max-width:260px">
-        ${l.last_contacted_at ? 'Last contact: ' + l.last_contacted_at.substring(0,10) : 'Not yet contacted'}
+      <div class="text-muted" style="font-size:11px">
+        ${l.phone||'No phone'}
+        ${l.send_queued ? ' · <span class="text-primary">queued to send</span>' : ''}
+        ${!l.imported_to_ghl ? ' · <span class="text-warning">not in GHL</span>' : ''}
+      </div>
+      <div class="text-truncate ${l.awaiting_reply ? 'fw-semibold text-dark' : 'text-muted'}"
+           style="font-size:11px; max-width:260px">
+        ${l.last_message
+            ? (l.last_direction === 'inbound' ? '← ' : '→ ') + esc(l.last_message)
+            : 'No messages yet'}
       </div>
     </div>`).join('');
 }
 
 async function openThread(leadId) {
-  const data = await api('GET', `/api/leads/${leadId}`);
+  // Sync this thread from GHL as it opens, so what is shown is GHL's history
+  // rather than only the messages this app happens to have recorded.
+  const data = await api('GET', `/api/leads/${leadId}?sync=1`);
   const l = data.lead;
   currentLead = l;
   renderList();
@@ -127,6 +181,11 @@ async function openThread(leadId) {
           <span class="badge ${l.ai_paused ? 'bg-warning text-dark' : 'bg-success'}" id="aiStatusBadge">
             ${l.ai_paused ? '<i class="bi bi-person-fill me-1"></i>Manual Mode' : '<i class="bi bi-robot me-1"></i>AI Active'}
           </span>
+          <button class="btn btn-xs btn-outline-secondary" onclick="resyncThread(${l.id})"
+                  title="Re-read this conversation from GHL">
+            <i class="bi bi-arrow-repeat"></i> Sync
+          </button>
+          <span class="text-muted" id="threadSyncNote" style="font-size:11px"></span>
         </div>
       </div>
       <div class="d-flex gap-2 flex-wrap">
@@ -272,6 +331,55 @@ async function saveNote(leadId) {
   const notes = document.getElementById('noteInput').value;
   await api('PUT', `/api/leads/${leadId}/notes`, { notes });
   showToast('Note saved');
+}
+
+// ─── GHL sync ──────────────────────────────────────────────────────────────
+
+async function resyncThread(leadId) {
+  const note = document.getElementById("threadSyncNote");
+  if (note) note.textContent = "syncing…";
+  try {
+    const d = await api("POST", `/api/leads/${leadId}/sync-ghl`);
+    await openThread(leadId);
+    const n = document.getElementById("threadSyncNote");
+    if (n) {
+      n.textContent = d.sync.error
+        ? d.sync.error
+        : (d.sync.added ? `${d.sync.added} new message(s)` : "up to date");
+    }
+  } catch (e) {
+    showToast(e.message, "error");
+    if (note) note.textContent = "";
+  }
+}
+
+async function syncAllFromGHL() {
+  if (!confirm("Pull recent message history from GHL for your linked leads?\n\n"
+    + "This only reads from GHL — nothing is sent and no lead is changed.")) return;
+  try {
+    const d = await api("POST", "/api/leads/sync-ghl-bulk", { limit: 200 });
+    showToast(d.message);
+    pollSync();
+  } catch (e) { showToast(e.message, "error"); }
+}
+
+let syncTimer = null;
+async function pollSync() {
+  clearInterval(syncTimer);
+  const el = document.getElementById("syncStatus");
+  const tick = async () => {
+    try {
+      const s = await api("GET", "/api/leads/sync-ghl-status");
+      if (!s.running && !s.total) { el.textContent = ""; clearInterval(syncTimer); return; }
+      el.innerHTML = s.running
+        ? `<i class="bi bi-arrow-repeat"></i> Syncing ${s.done}/${s.total} — ${s.added} message(s) added`
+        : `<i class="bi bi-check-circle text-success"></i> Sync finished — ${s.added} message(s) added`
+          + (s.errors.length ? ` · ${s.errors.length} problem(s)` : "");
+      if (!s.running) { clearInterval(syncTimer); loadConversations(); }
+    } catch (e) { clearInterval(syncTimer); }
+  };
+  await tick();
+  syncTimer = setInterval(tick, 4000);
 }
 
 function esc(s) {

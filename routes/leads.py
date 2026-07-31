@@ -115,10 +115,146 @@ def list_leads():
 
 @leads_bp.route("/<int:lead_id>", methods=["GET"])
 def get_lead(lead_id):
+    """
+    One lead plus its thread.
+
+    Pass ?sync=1 to pull the latest messages from GHL first, so the thread
+    shown is GHL's, not just the subset this application happens to have
+    recorded.
+    """
     lead = db.get_or_404(Lead, lead_id)
+
+    sync_result = None
+    if request.args.get("sync") in ("1", "true", "yes"):
+        from services.ghl_sync import sync_lead_messages
+        sync_result = sync_lead_messages(lead)
+
     data = lead.to_dict()
     data["conversations"] = [c.to_dict() for c in lead.conversations]
-    return jsonify({"lead": data})
+    return jsonify({"lead": data, "sync": sync_result})
+
+
+@leads_bp.route("/conversation-list", methods=["GET"])
+def conversation_list():
+    """
+    Compact lead list for the Conversations page.
+
+    The page used to load /api/leads/ with per_page=500 and then hide anything
+    still 'not_contacted' — so most of the list was unreachable. This returns
+    only the fields that page needs, plus the last message, and filters and
+    pages on the server so every lead can be found.
+    """
+    page = int(request.args.get("page", 1))
+    per_page = min(int(request.args.get("per_page", 100)), 500)
+    status = request.args.get("status", "")
+    search = request.args.get("search", "")
+    only = request.args.get("only", "")          # "manual" | "with_messages" | ""
+
+    stmt = select(Lead)
+    if status:
+        stmt = stmt.where(Lead.status == status)
+    if only == "manual":
+        stmt = stmt.where(Lead.ai_paused == True)
+    if search:
+        like = f"%{search}%"
+        stmt = stmt.where(or_(Lead.business_name.ilike(like), Lead.phone.ilike(like)))
+    if only == "with_messages":
+        stmt = stmt.where(Lead.id.in_(select(Conversation.lead_id).distinct()))
+
+    stmt = stmt.order_by(Lead.updated_at.desc().nullslast())
+    pagination = db.paginate(stmt, page=page, per_page=per_page, error_out=False)
+
+    lead_ids = [l.id for l in pagination.items]
+    last_message = {}
+    unread = {}
+    if lead_ids:
+        rows = db.session.execute(
+            select(Conversation)
+            .where(Conversation.lead_id.in_(lead_ids))
+            .order_by(Conversation.created_at.asc())
+        ).scalars().all()
+        for c in rows:
+            last_message[c.lead_id] = c
+            if c.direction == "inbound":
+                unread[c.lead_id] = True
+            else:
+                unread[c.lead_id] = False
+
+    def row(lead):
+        last = last_message.get(lead.id)
+        return {
+            "id": lead.id,
+            "business_name": lead.business_name,
+            "phone": lead.phone,
+            "status": lead.status,
+            "status_label": lead.STATUS_LABELS.get(lead.status, lead.status),
+            "ai_paused": bool(lead.ai_paused),
+            "send_queued": lead.send_queued_at is not None,
+            "imported_to_ghl": bool(lead.imported_to_ghl),
+            "updated_at": lead.updated_at.isoformat() if lead.updated_at else None,
+            "last_message": (last.message or "")[:120] if last else "",
+            "last_direction": last.direction if last else "",
+            "last_at": last.created_at.isoformat() if last and last.created_at else None,
+            "awaiting_reply": bool(unread.get(lead.id)),
+        }
+
+    return jsonify({
+        "leads": [row(l) for l in pagination.items],
+        "total": pagination.total,
+        "pages": pagination.pages,
+        "page": page,
+        "per_page": per_page,
+    })
+
+
+@leads_bp.route("/<int:lead_id>/sync-ghl", methods=["POST"])
+@require_admin_password
+def sync_lead_ghl(lead_id):
+    """Pull this lead's messages from GHL into the local thread."""
+    from services.ghl_sync import sync_lead_messages
+
+    lead = db.get_or_404(Lead, lead_id)
+    result = sync_lead_messages(lead)
+    data = lead.to_dict()
+    data["conversations"] = [c.to_dict() for c in lead.conversations]
+    return jsonify({"sync": result, "lead": data})
+
+
+@leads_bp.route("/sync-ghl-bulk", methods=["POST"])
+@require_admin_password
+def sync_ghl_bulk():
+    """Sync many leads in the background; poll /sync-ghl-status for progress."""
+    import threading
+    from flask import current_app
+    from services.ghl_sync import sync_many, get_sync_state
+
+    if get_sync_state()["running"]:
+        return jsonify({"message": "A sync is already running.", "state": get_sync_state()})
+
+    data = request.get_json() or {}
+    lead_ids = data.get("lead_ids")
+    if not lead_ids:
+        limit = min(int(data.get("limit", 200)), 1000)
+        lead_ids = [
+            l.id for l in db.session.execute(
+                select(Lead).where(Lead.ghl_contact_id.isnot(None))
+                .order_by(Lead.updated_at.desc().nullslast()).limit(limit)
+            ).scalars().all()
+        ]
+
+    if not lead_ids:
+        return jsonify({"message": "No GHL-linked leads to sync."})
+
+    app = current_app._get_current_object()
+    threading.Thread(target=sync_many, args=(app, lead_ids), daemon=True).start()
+    return jsonify({"message": f"Syncing {len(lead_ids)} lead(s) from GHL in the background.",
+                    "total": len(lead_ids)})
+
+
+@leads_bp.route("/sync-ghl-status", methods=["GET"])
+def sync_ghl_status():
+    from services.ghl_sync import get_sync_state
+    return jsonify(get_sync_state())
 
 
 @leads_bp.route("/<int:lead_id>/status", methods=["PUT"])
