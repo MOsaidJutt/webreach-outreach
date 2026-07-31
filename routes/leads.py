@@ -464,19 +464,23 @@ def send_bulk_sms():
             "results": {"sent": 0, "failed": 0, "errors": []}
         }), 200
 
-    # Check daily limit
-    daily_limit = int(AppSettings.get("daily_send_limit", "50"))
-    today = datetime.utcnow().date()
-    sent_today = db.session.scalar(
-        select(sqlfunc.count(Conversation.id)).where(
-            Conversation.direction == "outbound",
-            sqlfunc.date(Conversation.created_at) == str(today),
-        )
-    ) or 0
+    # Same counter and same limit the sender itself uses, so this cannot
+    # disagree with what the queue reports.
+    from flask import current_app
+    from services.smart_sender import _count_sent_today, get_limit_info
+
+    app_obj = current_app._get_current_object()
+    limit_info = get_limit_info(app_obj)
+    daily_limit = limit_info["limit"]
+    sent_today = _count_sent_today(app_obj)
     remaining = max(0, daily_limit - sent_today)
 
     if remaining == 0:
-        return jsonify({"message": f"Daily limit of {daily_limit} messages reached. Try again tomorrow.", "results": {"sent": 0, "failed": 0, "errors": []}}), 200
+        return jsonify({
+            "message": (f"Daily limit of {daily_limit} reached ({sent_today} sent). "
+                        f"Raise it in {limit_info['where']}, or try again tomorrow."),
+            "results": {"sent": 0, "failed": 0, "errors": []}
+        }), 200
 
     # Duplicate guard: skip any lead contacted in the last 24 hours
     cutoff_24h = datetime.utcnow() - timedelta(hours=24)

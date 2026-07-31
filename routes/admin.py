@@ -448,19 +448,25 @@ def preview_followup():
 
 @admin_bp.route("/daily-stats", methods=["GET"])
 def daily_stats():
-    from datetime import datetime
-    today     = datetime.utcnow().date()
-    sent_today = db.session.scalar(
-        select(func.count(Conversation.id)).where(
-            Conversation.direction == "outbound",
-            func.date(Conversation.created_at) == str(today),
-        )
-    ) or 0
-    limit     = int(AppSettings.get("daily_send_limit", "50"))
+    """
+    Outreach sent today against today's limit.
+
+    Uses the same counter as the sender itself, so the dashboard cannot
+    disagree with the thing actually deciding whether to send. It counts only
+    outreach — not AI replies, manual messages, or history synced from GHL.
+    """
+    from services.smart_sender import _count_sent_today, get_limit_info
+
+    app = current_app._get_current_object()
+    sent_today = _count_sent_today(app)
+    info = get_limit_info(app)
+    limit = info["limit"]
     return jsonify({
         "sent_today": sent_today,
         "daily_limit": limit,
         "remaining": max(0, limit - sent_today),
+        "limit_source": info["source"],
+        "limit_where": info["where"],
     })
 
 

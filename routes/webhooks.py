@@ -429,7 +429,9 @@ def _send_reply(lead, message: str, conversation_id: str) -> tuple[bool, str]:
         result = ghl.send_sms(lead.ghl_contact_id, message, conversation_id)
         db.session.add(Conversation(
             lead_id=lead.id, direction="outbound", message=message,
-            step=lead.conversation_step, status="sent",
+            # Not "sent": answering someone who messaged us is not outreach and
+            # must not consume the daily outreach limit.
+            step=lead.conversation_step, status="ai_reply",
             ghl_message_id=result.get("messageId", ""),
         ))
         return True, ""

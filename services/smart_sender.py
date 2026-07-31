@@ -179,7 +179,8 @@ def get_queue_state(app=None) -> dict:
     scheduler_alive = bool(last_tick and (now - last_tick).total_seconds() < 120)
 
     within_window, opens_at, now_local, tz_name = _window_bounds(app)
-    today_limit = _get_todays_limit(app)
+    limit_info = get_limit_info(app)
+    today_limit = limit_info["limit"]
     sent_today = _count_sent_today(app)
     limit_reached = sent_today >= today_limit
 
@@ -189,8 +190,17 @@ def get_queue_state(app=None) -> dict:
             blocked_reason = ("The background sender is not running, so the queue is stuck. "
                               "Restart the app on the server (systemctl restart webreach).")
         elif limit_reached:
-            blocked_reason = (f"Daily limit reached ({sent_today}/{today_limit}). "
-                              "Sending resumes tomorrow, or raise the limit in Admin.")
+            if limit_info["source"] == "warmup":
+                blocked_reason = (
+                    f"Daily limit reached ({sent_today}/{today_limit}). This is the "
+                    f"warm-up limit for day {limit_info['warmup_day']}, not the "
+                    f"Daily SMS Limit of {limit_info['manual_limit']} — raising that "
+                    f"field has no effect while warm-up is running. Change it in "
+                    f"{limit_info['where']}, or turn Smart Send off.")
+            else:
+                blocked_reason = (f"Daily limit reached ({sent_today}/{today_limit}). "
+                                  f"Sending resumes tomorrow, or raise it in "
+                                  f"{limit_info['where']}.")
         elif not within_window:
             when = opens_at.strftime("%H:%M on %d %b") if opens_at else "the next window"
             blocked_reason = (f"Outside your sending hours "
@@ -218,6 +228,8 @@ def get_queue_state(app=None) -> dict:
         "timezone": tz_name,
         "daily_limit": today_limit,
         "sent_today": sent_today,
+        "limit_source": limit_info["source"],
+        "limit_where": limit_info["where"],
         "blocked_reason": blocked_reason,
     }
 
@@ -485,6 +497,13 @@ def _get_todays_limit(app) -> int:
             return manual_limit
 
 
+# Only messages we initiated count against the daily outreach limit. Replies
+# the AI sends, messages typed by hand, failures, and history pulled in from
+# GHL all used to count too -- a sync of past conversations alone could push
+# the count over the limit and freeze the queue for the rest of the day.
+OUTREACH_STATUS = "sent"
+
+
 def _count_sent_today(app) -> int:
     with app.app_context():
         from models import Conversation
@@ -494,9 +513,39 @@ def _count_sent_today(app) -> int:
         return db.session.scalar(
             select(func.count(Conversation.id)).where(
                 Conversation.direction == "outbound",
+                Conversation.status == OUTREACH_STATUS,
                 func.date(Conversation.created_at) == str(today),
             )
         ) or 0
+
+
+def get_limit_info(app) -> dict:
+    """
+    Today's limit and, importantly, which setting produced it.
+
+    Once a warm-up has been started the curve governs and the manual
+    "Daily SMS Limit" is ignored entirely -- so raising that field appears to
+    do nothing at all unless you are told where the real limit comes from.
+    """
+    with app.app_context():
+        from models import AppSettings
+        manual = int(AppSettings.get("daily_send_limit", "50"))
+        start_date_str = AppSettings.get("warmup_start_date", "")
+        if not start_date_str:
+            return {"limit": manual, "source": "manual",
+                    "where": "Admin -> Daily SMS Limit"}
+        try:
+            start_limit = int(AppSettings.get("warmup_start_limit", "20"))
+            increase = int(AppSettings.get("warmup_daily_increase", "2"))
+            max_limit = int(AppSettings.get("warmup_max_limit", "200"))
+            day = (date.today() - date.fromisoformat(start_date_str)).days
+            limit = min(start_limit + day * increase, max_limit)
+            return {"limit": limit, "source": "warmup", "warmup_day": day + 1,
+                    "manual_limit": manual,
+                    "where": "Admin -> Smart Send Scheduler (warm-up)"}
+        except Exception:
+            return {"limit": manual, "source": "manual",
+                    "where": "Admin -> Daily SMS Limit"}
 
 
 def _is_within_working_hours(app) -> bool:
