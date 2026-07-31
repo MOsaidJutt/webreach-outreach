@@ -34,6 +34,18 @@ def _configure_file_logging(app):
     root.addHandler(handler)
     root.setLevel(logging.INFO)
 
+    # APScheduler logs two INFO lines every single minute for the smart-send
+    # tick — roughly 2,900 lines a day. It buried every message that actually
+    # mattered and made the log viewer useless for diagnosing anything.
+    # Warnings and errors from the scheduler still come through.
+    for noisy in ("apscheduler.executors.default", "apscheduler.scheduler"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
+    from version import BUILD
+    logging.getLogger(__name__).info(
+        f"WebReach starting - build {BUILD}, pid {os.getpid()}"
+    )
+
 
 def _repair_placeholder_collision():
     """
